@@ -1,4 +1,4 @@
-# Makefile for eco_flow_2026
+# Makefile for Eco Flow Simulation
 # Compilador y configuración
 CC = gcc
 CFLAGS = -Wall -Wextra -std=c11 -O2 -pthread
@@ -8,63 +8,50 @@ INCLUDES = -Iinclude
 # Directorios
 SRC_DIR = src
 BUILD_DIR = build
-TEST_DIR = tests
+LOGS_DIR = logs
 
-# Archivos fuente
-CORE_SOURCES = $(SRC_DIR)/core/logger.c $(SRC_DIR)/core/stats_collector.c
-IPC_SOURCES = $(SRC_DIR)/ipc/sync_primitives.c $(SRC_DIR)/ipc/message_bus.c
-MODULE_SOURCES = $(SRC_DIR)/modules/auditor.c $(SRC_DIR)/modules/nodo_residencial.c $(SRC_DIR)/modules/nodo_industrial.c $(SRC_DIR)/modules/monitoreo.c
-MAIN_SOURCE = $(SRC_DIR)/main.c
+# Archivos fuente por desarrollador
+MAIN_SOURCES = $(SRC_DIR)/main/eco_flow_main.c
+IPC_SOURCES = $(SRC_DIR)/ipc/ipc_utils.c
+AUDITOR_SOURCES = $(SRC_DIR)/auditor/auditor.c
+NODOS_SOURCES = $(SRC_DIR)/nodos/residencial.c $(SRC_DIR)/nodos/industrial.c
+MONITOREO_SOURCES = $(SRC_DIR)/monitoreo/monitor.c
 
 # Todos los archivos fuente
-ALL_SOURCES = $(CORE_SOURCES) $(IPC_SOURCES) $(MODULE_SOURCES) $(MAIN_SOURCE)
+ALL_SOURCES = $(MAIN_SOURCES) $(IPC_SOURCES) $(AUDITOR_SOURCES) $(NODOS_SOURCES) $(MONITOREO_SOURCES)
 
 # Archivos objeto
-CORE_OBJECTS = $(CORE_SOURCES:$(SRC_DIR)/%.c=$(BUILD_DIR)/%.o)
+MAIN_OBJECTS = $(MAIN_SOURCES:$(SRC_DIR)/%.c=$(BUILD_DIR)/%.o)
 IPC_OBJECTS = $(IPC_SOURCES:$(SRC_DIR)/%.c=$(BUILD_DIR)/%.o)
-MODULE_OBJECTS = $(MODULE_SOURCES:$(SRC_DIR)/%.c=$(BUILD_DIR)/%.o)
-MAIN_OBJECT = $(MAIN_SOURCE:$(SRC_DIR)/%.c=$(BUILD_DIR)/%.o)
+AUDITOR_OBJECTS = $(AUDITOR_SOURCES:$(SRC_DIR)/%.c=$(BUILD_DIR)/%.o)
+NODOS_OBJECTS = $(NODOS_SOURCES:$(SRC_DIR)/%.c=$(BUILD_DIR)/%.o)
+MONITOREO_OBJECTS = $(MONITOREO_SOURCES:$(SRC_DIR)/%.c=$(BUILD_DIR)/%.o)
 
-ALL_OBJECTS = $(CORE_OBJECTS) $(IPC_OBJECTS) $(MODULE_OBJECTS) $(MAIN_OBJECT)
+ALL_OBJECTS = $(MAIN_OBJECTS) $(IPC_OBJECTS) $(AUDITOR_OBJECTS) $(NODOS_OBJECTS) $(MONITOREO_OBJECTS)
 
 # Ejecutable principal
-TARGET = eco_flow_2026
-
-# Tests
-TEST_SOURCES = $(wildcard $(TEST_DIR)/*.c)
-TEST_OBJECTS = $(TEST_SOURCES:$(TEST_DIR)/%.c=$(BUILD_DIR)/test_%.o)
-TEST_TARGET = test_runner
+TARGET = eco_flow
 
 # Reglas por defecto
-.PHONY: all clean debug test run help
+.PHONY: all clean debug test run help setup
 
-all: $(TARGET)
+all: setup $(TARGET)
 
-# Crear directorio de build
-$(BUILD_DIR):
-	mkdir -p $(BUILD_DIR)/core $(BUILD_DIR)/ipc $(BUILD_DIR)/modules
+# Crear directorios necesarios
+setup:
+	@mkdir -p $(BUILD_DIR) $(BUILD_DIR)/main $(BUILD_DIR)/ipc $(BUILD_DIR)/auditor $(BUILD_DIR)/nodos $(BUILD_DIR)/monitoreo $(LOGS_DIR)
 
 # Compilar archivos objeto
-$(BUILD_DIR)/%.o: $(SRC_DIR)/%.c | $(BUILD_DIR)
-	$(CC) $(CFLAGS) $(INCLUDES) -c $< -o $@
-
-$(BUILD_DIR)/test_%.o: $(TEST_DIR)/%.c | $(BUILD_DIR)
+$(BUILD_DIR)/%.o: $(SRC_DIR)/%.c | setup
 	$(CC) $(CFLAGS) $(INCLUDES) -c $< -o $@
 
 # Enlazar ejecutable principal
 $(TARGET): $(ALL_OBJECTS)
-	$(CC) $(CFLAGS) $(ALL_OBJECTS) -o $@ -pthread -lm
+	$(CC) $(CFLAGS) $(ALL_OBJECTS) -o $@ -pthread -lrt -lm
 
 # Compilación con debug
 debug: CFLAGS += $(DEBUG_FLAGS)
 debug: clean $(TARGET)
-
-# Tests
-test: $(TEST_TARGET)
-
-$(TEST_TARGET): $(CORE_OBJECTS) $(IPC_OBJECTS) $(MODULE_OBJECTS) $(TEST_OBJECTS)
-	$(CC) $(CFLAGS) $^ -o $@ -pthread -lm
-	./$(TEST_TARGET)
 
 # Ejecutar el programa
 run: $(TARGET)
@@ -72,20 +59,11 @@ run: $(TARGET)
 
 # Limpiar archivos compilados
 clean:
-	rm -rf $(BUILD_DIR) $(TARGET) $(TEST_TARGET)
+	rm -rf $(BUILD_DIR) $(TARGET)
 
-# Instalar dependencias (si es necesario)
-install-deps:
-	@echo "No se requieren dependencias externas para este proyecto"
-
-# Analizar código con valgrind
-valgrind: $(TARGET)
-	valgrind --leak-check=full --show-leak-kinds=all --track-origins=yes ./$(TARGET)
-
-# Generar documentación (si se usa doxygen)
-docs:
-	@echo "Generando documentación..."
-	@if [ -f Doxyfile ]; then doxygen Doxyfile; else echo "No se encontró Doxyfile"; fi
+# Limpiar todo incluyendo logs
+clean-all: clean
+	rm -rf $(LOGS_DIR)
 
 # Mostrar ayuda
 help:
@@ -94,17 +72,15 @@ help:
 	@echo "Targets disponibles:"
 	@echo "  all          - Compilar el proyecto (default)"
 	@echo "  debug        - Compilar con flags de debug"
-	@echo "  test         - Compilar y ejecutar tests"
 	@echo "  run          - Compilar y ejecutar el programa"
 	@echo "  clean        - Limpiar archivos compilados"
-	@echo "  install-deps - Instalar dependencias"
-	@echo "  valgrind     - Ejecutar análisis con valgrind"
-	@echo "  docs         - Generar documentación"
+	@echo "  clean-all    - Limpiar todo incluyendo logs"
+	@echo "  setup        - Crear estructura de directorios"
 	@echo "  help         - Mostrar esta ayuda"
 
 # Dependencias entre módulos
-$(BUILD_DIR)/modules/auditor.o: $(BUILD_DIR)/core/logger.o $(BUILD_DIR)/ipc/message_bus.o
-$(BUILD_DIR)/modules/nodo_residencial.o: $(BUILD_DIR)/core/logger.o $(BUILD_DIR)/ipc/sync_primitives.o
-$(BUILD_DIR)/modules/nodo_industrial.o: $(BUILD_DIR)/core/logger.o $(BUILD_DIR)/ipc/sync_primitives.o
-$(BUILD_DIR)/modules/monitoreo.o: $(BUILD_DIR)/core/stats_collector.o $(BUILD_DIR)/ipc/message_bus.o
-$(BUILD_DIR)/main.o: $(CORE_OBJECTS) $(IPC_OBJECTS) $(MODULE_OBJECTS)
+$(BUILD_DIR)/main/eco_flow_main.o: $(BUILD_DIR)/ipc/ipc_utils.o
+$(BUILD_DIR)/auditor/auditor.o: $(BUILD_DIR)/ipc/ipc_utils.o $(BUILD_DIR)/main/eco_flow_main.o
+$(BUILD_DIR)/nodos/residencial.o: $(BUILD_DIR)/ipc/ipc_utils.o
+$(BUILD_DIR)/nodos/industrial.o: $(BUILD_DIR)/ipc/ipc_utils.o
+$(BUILD_DIR)/monitoreo/monitor.o: $(BUILD_DIR)/ipc/ipc_utils.o $(BUILD_DIR)/main/eco_flow_main.o

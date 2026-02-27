@@ -51,10 +51,10 @@ int main(void) {
     // Lanzar procesos de los otros desarrolladores
     printf("[Líder] Lanzando procesos de simulación...\n");
     
-    pids[0] = lanzar_proceso("nodo_industrial");
-    pids[1] = lanzar_proceso("nodo_residencial");
-    pids[2] = lanzar_proceso("auditor_de_flujo");
-    pids[3] = lanzar_proceso("monitoreo_de_presion");
+    pids[0] = lanzar_proceso("industrial");
+    pids[1] = lanzar_proceso("residencial");
+    pids[2] = lanzar_proceso("auditor");
+    pids[3] = lanzar_proceso("monitor");
     
     int procesos_lanzados = 0;
     for (int i = 0; i < 4; i++) {

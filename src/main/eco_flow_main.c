@@ -82,15 +82,15 @@ int main(void) {
         for (int hora = HORA_INICIO; hora <= HORA_FIN && !simulacion_terminada; hora++) {
             shm->hora_actual = hora;
             
-            // Simular una "hora" de trabajo (1 segundo = 1 hora simulada)
-            sleep(1);
-            
             // Señalar a todos los procesos que pasó una hora
             sem_post(&shm->sem_nodo_industrial);
             sem_post(&shm->sem_nodo_residencial);
             sem_post(&shm->sem_auditor);
             sem_post(&shm->sem_monitoreo);
 
+            // Simular una "hora" de trabajo (1 segundo = 1 hora simulada)
+            sleep(1);
+    
             // Mostrar progreso cada 6 horas
             if (hora % 6 == 0) {
                 printf("[Líder] Día %d, Hora %d: Simulación activa...\n", dia, hora);

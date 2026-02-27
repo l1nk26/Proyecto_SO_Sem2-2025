@@ -95,6 +95,11 @@ int main(void) {
             if (hora % 6 == 0) {
                 printf("[Líder] Día %d, Hora %d: Simulación activa...\n", dia, hora);
             }
+
+            sem_wait(&shm->sem_nodo_industrial);
+            sem_wait(&shm->sem_nodo_residencial);
+            sem_wait(&shm->sem_auditor);
+            sem_wait(&shm->sem_monitoreo);
         }
     }
     

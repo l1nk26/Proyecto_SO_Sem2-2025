@@ -79,6 +79,9 @@ int main(void) {
     for (int dia = 1; dia <= DIAS_SIMULACION && !simulacion_terminada; dia++) {
         shm->dia_actual = dia;
         
+        sem_post(&shm->sem_nodo_dia);
+        sem_post(&shm->sem_nodo_dia);
+        
         for (int hora = HORA_INICIO; hora <= HORA_FIN && !simulacion_terminada; hora++) {
             shm->hora_actual = hora;
             
@@ -87,6 +90,7 @@ int main(void) {
             sem_post(&shm->sem_nodo_residencial);
             sem_post(&shm->sem_auditor);
             sem_post(&shm->sem_monitoreo);
+
 
             // Simular una "hora" de trabajo (1 segundo = 1 hora simulada)
             sleep(1);

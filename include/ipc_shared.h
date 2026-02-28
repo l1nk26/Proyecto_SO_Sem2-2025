@@ -55,6 +55,8 @@ typedef struct {
     sem_t sem_auditor;             // Para auditor_de_flujo
     sem_t sem_monitoreo;           // Para monitoreo_de_presion
 
+    sem_t sem_nodo_dia;
+
 } MemoriaCompartida;
 
 #endif // IPC_SHARED_H

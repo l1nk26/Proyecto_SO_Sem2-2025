@@ -1,7 +1,7 @@
 # Makefile for Eco Flow Simulation
 # Compilador y configuración
 CC = gcc
-CFLAGS = -Wall -Wextra -std=c11 -O2 -pthread
+CFLAGS = -Wall -Wextra -std=c11 -O2 -pthread -D_GNU_SOURCE
 DEBUG_FLAGS = -g -DDEBUG -fsanitize=address -fsanitize=thread
 INCLUDES = -Iinclude
 
@@ -17,8 +17,11 @@ AUDITOR_SOURCES = $(SRC_DIR)/auditor/auditor.c
 NODOS_SOURCES = $(SRC_DIR)/nodos/residencial.c $(SRC_DIR)/nodos/industrial.c
 MONITOREO_SOURCES = $(SRC_DIR)/monitoreo/monitor.c
 
+# Para prueba preliminar: solo compilar main + ipc
+PRUEBA_SOURCES = $(MAIN_SOURCES) $(IPC_SOURCES)
+
 # Todos los archivos fuente
-ALL_SOURCES = $(MAIN_SOURCES) $(IPC_SOURCES) $(AUDITOR_SOURCES) $(NODOS_SOURCES) $(MONITOREO_SOURCES)
+ALL_SOURCES = $(PRUEBA_SOURCES) $(AUDITOR_SOURCES) $(NODOS_SOURCES) $(MONITOREO_SOURCES) $(NODOS_SOURCES)
 
 # Archivos objeto
 MAIN_OBJECTS = $(MAIN_SOURCES:$(SRC_DIR)/%.c=$(BUILD_DIR)/%.o)
@@ -27,15 +30,19 @@ AUDITOR_OBJECTS = $(AUDITOR_SOURCES:$(SRC_DIR)/%.c=$(BUILD_DIR)/%.o)
 NODOS_OBJECTS = $(NODOS_SOURCES:$(SRC_DIR)/%.c=$(BUILD_DIR)/%.o)
 MONITOREO_OBJECTS = $(MONITOREO_SOURCES:$(SRC_DIR)/%.c=$(BUILD_DIR)/%.o)
 
-ALL_OBJECTS = $(MAIN_OBJECTS) $(IPC_OBJECTS) $(AUDITOR_OBJECTS) $(NODOS_OBJECTS) $(MONITOREO_OBJECTS)
+# Archivos objeto (solo para prueba preliminar)
+PRUEBA_OBJECTS = $(PRUEBA_SOURCES:$(SRC_DIR)/%.c=$(BUILD_DIR)/%.o)
+
+ALL_OBJECTS = $(PRUEBA_OBJECTS)
 
 # Ejecutable principal
 TARGET = eco_flow
 
 # Reglas por defecto
-.PHONY: all clean debug test run help setup
+.PHONY: all clean clean-all debug test run help setup residencial industrial auditor monitor clean_cache clean_debug
 
-all: setup $(TARGET)
+# Compilar todos los ejecutables (principal + procesos)
+all: setup $(TARGET) residencial industrial
 
 # Crear directorios necesarios
 setup:
@@ -49,21 +56,37 @@ $(BUILD_DIR)/%.o: $(SRC_DIR)/%.c | setup
 $(TARGET): $(ALL_OBJECTS)
 	$(CC) $(CFLAGS) $(ALL_OBJECTS) -o $@ -pthread -lrt -lm
 
-# Compilación con debug
-debug: CFLAGS += $(DEBUG_FLAGS)
-debug: clean $(TARGET)
+# Compilar procesos individuales
+residencial: setup $(SRC_DIR)/nodos/residencial.c $(IPC_OBJECTS)
+	$(CC) $(CFLAGS) $(INCLUDES) $(SRC_DIR)/nodos/residencial.c $(IPC_OBJECTS) -o $@ -pthread -lrt -lm
 
-# Ejecutar el programa
-run: $(TARGET)
-	./$(TARGET)
+industrial: setup $(SRC_DIR)/nodos/industrial.c $(IPC_OBJECTS)
+	$(CC) $(CFLAGS) $(INCLUDES) $(SRC_DIR)/nodos/industrial.c $(IPC_OBJECTS) -o $@ -pthread -lrt -lm
+
+auditor: setup $(SRC_DIR)/auditor/auditor.c $(IPC_OBJECTS)
+	$(CC) $(CFLAGS) $(INCLUDES) $(SRC_DIR)/auditor/auditor.c $(IPC_OBJECTS) -o $@ -pthread -lrt -lm
+
+monitor: setup $(SRC_DIR)/monitoreo/monitor.c $(IPC_OBJECTS)
+	$(CC) $(CFLAGS) $(INCLUDES) $(SRC_DIR)/monitoreo/monitor.c $(IPC_OBJECTS) -o $@ -pthread -lrt -lm
+
+# Compilación con debug
+debug: 
+	$(MAKE) CFLAGS="$(CFLAGS) $(DEBUG_FLAGS)"
+
+clean_debug: 
+	$(MAKE) clean
+
+clean_cache:
+	sudo rm /usr/local/bin/residencial
 
 # Limpiar archivos compilados
 clean:
 	rm -rf $(BUILD_DIR) $(TARGET)
 
-# Limpiar todo incluyendo logs
+# Limpiar todo incluyendo logs y ejecutables individuales
 clean-all: clean
 	rm -rf $(LOGS_DIR)
+	rm -f residencial industrial auditor monitor
 
 # Mostrar ayuda
 help:

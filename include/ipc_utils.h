@@ -22,7 +22,7 @@ void esperar_hora_auditor(MemoriaCompartida *shm);
 void esperar_hora_monitoreo(MemoriaCompartida *shm);
 
 // Helpers para locks de nodos (lectura/escritura)
-int reservar_nodo(MemoriaCompartida *shm, int id_nodo);      // lock write
+int reservar_nodo(MemoriaCompartida *shm, int id_nodo, int usuario_id);      // lock write
 void liberar_nodo(MemoriaCompartida *shm, int id_nodo);       // unlock write
 int leer_nodo(MemoriaCompartida *shm, int id_nodo);          // lock read
 void terminar_lectura_nodo(MemoriaCompartida *shm, int id_nodo); // unlock read
@@ -30,5 +30,8 @@ void terminar_lectura_nodo(MemoriaCompartida *shm, int id_nodo); // unlock read
 // Helper para mutex de metricas
 void lock_metricas(MemoriaCompartida *shm);
 void unlock_metricas(MemoriaCompartida *shm);
+
+// --- FUNCIONES ADICIONALES PARA SINCRONIZACIÓN ---
+void set_max_solicitudes_residencial(MemoriaCompartida *shm, int max_solicitudes);
 
 #endif // IPC_UTILS_H

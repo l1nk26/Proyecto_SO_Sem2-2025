@@ -7,11 +7,7 @@ static double factorial(int n);
 
 static int poisson_ppf(double lambda, double p);
 
-static double exponential_ppf(double lambda, double p);
-
-static int maximo(int *v, int tam);
-
-double calcular_tiempo_transcurrido(const struct timespec *inicio, const struct timespec *fin)
+double calcular_tiempo_transcurrido(const struct timespec *inicio, const struct timespec *fin);
 
 // Implementacion
 static double factorial(int n) {
@@ -34,20 +30,6 @@ static int poisson_ppf(double lambda, double p) {
     }
     
     return x - 1;
-}
-
-static double exponential_ppf(double lambda, double p) {
-    return (-log(1 - p) / lambda);
-}
-
-static int maximo(int *v, int tam) {
-    int max = 0;
-    for (int i = 0; i < tam; i++) {
-        if (max < v[i]) {
-            max = v[i];
-        }
-    }
-    return max;
 }
 
 double calcular_tiempo_transcurrido(const struct timespec *inicio, const struct timespec *fin) {

@@ -51,13 +51,15 @@ int main(void) {
     // Lanzar procesos de los otros desarrolladores
     printf("[Líder] Lanzando procesos de simulación...\n");
     
-    pids[0] = lanzar_proceso("industrial");
-    pids[1] = lanzar_proceso("residencial");
-    pids[2] = lanzar_proceso("auditor");
-    pids[3] = lanzar_proceso("monitor");
+    pids[0] = lanzar_proceso("residencial");
+    pids[1] = lanzar_proceso("industrial");
+    // pids[2] = lanzar_proceso("auditor");
+    // pids[3] = lanzar_proceso("monitor");
+
+
     
-    int procesos_lanzados = 0;
-    for (int i = 0; i < 4; i++) {
+/* int procesos_lanzados = 0;
+    for (int i = 0; i < 1; i++) { // Solo verificar el proceso residencial
         if (pids[i] > 0) { 
             procesos_lanzados++;
         } else {
@@ -65,24 +67,26 @@ int main(void) {
         }
     }
     
-    if (procesos_lanzados < 4) {
+    if (procesos_lanzados < 1) { // Cambiado a 1 para prueba
         fprintf(stderr, "[Líder] Error: No se pudo lanzar todos los procesos\n");
         destruir_memoria_compartida(shm, shm_fd);
         return EXIT_FAILURE;
-    }
+    } */
     
-    printf("[Líder] %d procesos lanzados exitosamente\n", procesos_lanzados);
+    //printf("[Líder] %d procesos lanzados exitosamente\n", procesos_lanzados);
     
     // Bucle principal de simulación (30 "días")
     printf("[Líder] Iniciando simulación de %d días...\n", DIAS_SIMULACION);
-    
+    sleep(1);
+
     for (int dia = 1; dia <= DIAS_SIMULACION && !simulacion_terminada; dia++) {
+    
+        sem_wait(&shm->sem_residencial_listo); // espera antes de iniciar el dia.
+        sem_wait(&shm->sem_industrial_listo);
         shm->dia_actual = dia;
-        
-        sem_post(&shm->sem_nodo_dia);
-        sem_post(&shm->sem_nodo_dia);
-        
-        for (int hora = HORA_INICIO; hora <= HORA_FIN && !simulacion_terminada; hora++) {
+
+        for (int hora = HORA_INICIO; hora < HORA_FIN && !simulacion_terminada; hora++) {
+            //sem_wait(&shm->sem_residencial_listo);
             shm->hora_actual = hora;
             
             // Señalar a todos los procesos que pasó una hora
@@ -100,11 +104,16 @@ int main(void) {
                 printf("[Líder] Día %d, Hora %d: Simulación activa...\n", dia, hora);
             }
 
-            sem_wait(&shm->sem_nodo_industrial);
-            sem_wait(&shm->sem_nodo_residencial);
-            sem_wait(&shm->sem_auditor);
-            sem_wait(&shm->sem_monitoreo);
+            sem_post(&shm->sem_nodo_residencial);
+            sem_post(&shm->sem_nodo_industrial);
+            //sem_wait(&shm->sem_nodo_residencial);
+            //sem_wait(&shm->sem_auditor);
+            //sem_wait(&shm->sem_monitoreo);
         }
+        printf("a");
+        sem_post(&shm->sem_nodo_dia_fin);
+        sem_post(&shm->sem_nodo_dia_fin);
+
     }
     
     // Terminar simulación
@@ -112,7 +121,7 @@ int main(void) {
     printf("[Líder] Simulación completada. Enviando señales de terminación...\n");
     
     // Enviar SIGTERM a todos los procesos hijos
-    for (int i = 0; i < 4; i++) {
+/*     for (int i = 0; i < 1; i++) { // Solo verificar el proceso residencial
         if (pids[i] > 0) {
             printf("[Líder] Enviando SIGTERM a PID %d\n", pids[i]);
             if (kill(pids[i], SIGTERM) < 0) {
@@ -123,7 +132,7 @@ int main(void) {
     
     // Esperar a que todos los procesos terminen
     printf("[Líder] Esperando finalización de procesos...\n");
-    for (int i = 0; i < 4; i++) {
+    for (int i = 0; i < 1; i++) { // Solo verificar el proceso residencial
         if (pids[i] > 0) {
             int status;
             pid_t result = waitpid(pids[i], &status, 0);
@@ -135,7 +144,7 @@ int main(void) {
                 }
             }
         }
-    }
+    } */
     
     // Mostrar resultados finales
     mostrar_resultados(shm);
@@ -221,6 +230,23 @@ static void inicializar_memoria(MemoriaCompartida *shm) {
     sem_init(&shm->sem_nodo_residencial, 1, 0);
     sem_init(&shm->sem_auditor, 1, 0);
     sem_init(&shm->sem_monitoreo, 1, 0);
+    
+    // Inicializar semáforos adicionales para sincronización entre procesos
+    sem_init(&shm->sem_nodo_dia_fin, 1, 0);
+    sem_init(&shm->sem_residencial_listo, 1, 0);
+    sem_init(&shm->sem_industrial_listo, 1, 0);
+    sem_init(&shm->sem_residencial_escoge_maximo, 1, 0);
+    sem_init(&shm->sem_nodos_libres, 1, NUM_NODOS);
+    
+    // Inicializar control de solicitudes
+    shm->max_solicitudes_residencial = 0;
+    
+    // Inicializar rwlock global para nodos
+    pthread_rwlockattr_t rwlock_attr;
+    pthread_rwlockattr_init(&rwlock_attr);
+    pthread_rwlockattr_setpshared(&rwlock_attr, PTHREAD_PROCESS_SHARED);
+    pthread_rwlock_init(&shm->mutex_nodos, &rwlock_attr);
+    pthread_rwlockattr_destroy(&rwlock_attr);
 }
 
 static void destruir_memoria_compartida(MemoriaCompartida *shm, int shm_fd) {
@@ -234,6 +260,16 @@ static void destruir_memoria_compartida(MemoriaCompartida *shm, int shm_fd) {
     sem_destroy(&shm->sem_nodo_residencial);
     sem_destroy(&shm->sem_auditor);
     sem_destroy(&shm->sem_monitoreo);
+    
+    // Destruir semáforos adicionales
+    sem_destroy(&shm->sem_nodo_dia_fin);
+    sem_destroy(&shm->sem_residencial_listo);
+    sem_destroy(&shm->sem_industrial_listo);
+    sem_destroy(&shm->sem_residencial_escoge_maximo);
+    sem_destroy(&shm->sem_nodos_libres);
+    
+    // Destruir rwlock global
+    pthread_rwlock_destroy(&shm->mutex_nodos);
 
     // Destruir mutex
     pthread_mutex_destroy(&shm->mutex_metricas);
@@ -260,9 +296,9 @@ static pid_t lanzar_proceso(const char *ejecutable) {
         return -1;
     } else if (pid == 0) {
         // Proceso hijo
-        execlp(ejecutable, ejecutable, NULL);
+        execl(ejecutable, ejecutable, NULL);
         
-        // Si execlp retorna, hubo un error
+        // Si execl retorna, hubo un error
         fprintf(stderr, "[Líder] Error al ejecutar %s: %s\n", ejecutable, strerror(errno));
         exit(EXIT_FAILURE);
     }

@@ -58,13 +58,15 @@ InfoHilo informacion_hilos[DIAS_SIMULACION][HORAS_DIA][MAX_SOLICITUDES_RESIDENCI
 int numero_solicitudes[DIAS_SIMULACION][HORAS_DIA] = {0};
 
 pthread_t hilos[HORAS_DIA][MAX_SOLICITUDES_RESIDENCIAL]; // depues puede cambiarse para lograr mejor eficiencia en espacio
-
 sem_t sem_dia;
+sem_t sem_hora;
 
 bool dia_terminado = false;
+bool hora_terminado = false;
 
 static void inicializar_semaforos() {
     sem_init(&sem_dia, 0, 1);
+    sem_init(&sem_hora, 0, 1);
 }
 
 // consultar si el dia termino
@@ -78,8 +80,23 @@ static bool dia_termino() {
 
 static void dia_set(bool terminado) {
     sem_wait(&sem_dia);
-    dia_terminado = terminado;
+    hora_terminado = terminado;
     sem_post(&sem_dia);
+}
+
+static bool hora_termino() {
+    bool x;
+    sem_wait(&sem_hora);
+    x = hora_terminado;
+    sem_post(&sem_hora);
+    return x;
+}
+
+
+static void hora_set(bool terminado) {
+    sem_wait(&sem_hora);
+    hora_terminado = terminado;
+    sem_post(&sem_hora);
 }
 
 
@@ -153,8 +170,9 @@ int main(void) {
             // actualizar indice de informacion de hilos para acceder a informacion_hilos
             actualizar_nro_solicitudes(dia_actual - 1, i);
             
-            // esperar señal de hora simulada
-            sem_wait(&shm->sem_nodo_residencial);
+            // Avisar al líder que estamos listos para la hora
+            sem_post(&shm->sem_nodo_residencial_listo_hora);
+            
             
             printf("[Residencial] (%06ld) Día %d, Hora %d: Generando solicitudes...\n", 
             obtener_timestamp_ms(), dia_actual, hora_actual);
@@ -163,20 +181,39 @@ int main(void) {
             procesar_solicitud(dia_actual - 1, i);
 
             sem_wait(&shm->sem_nodo_residencial);
+            
+
+            if (i == HORAS_DIA - 1) 
+            dia_set(true);
+            
+            hora_set(true);
+            // Esperar a que todos los hilos terminen antes de avisar al líder 
+            // (En esperar asignacion debo guardar el estado de los hilos que no pudieron ingresar al sistema para dejarlos para la siguiente hora)
+            {}
 
             for (int nodo = 0; nodo < NUM_NODOS; nodo++){
                 liberar_nodo(shm, nodo);
             }
 
+            // luego espero a que terminen
+            for (int h = 0; h < solicitudes[i]; h++) {
+                pthread_join(hilos[i][h], NULL);
+            }
+
+            // Avisar al líder que terminamos la hora
+            sem_post(&shm->sem_nodo_residencial_listo_hora);
+            
+            hora_set(false);
+
         }
         
-        sem_wait(&shm->sem_nodo_dia_fin);
+        sem_wait(&shm->sem_nodo_residencial_dia_fin);
 
         dia_set(true);
 
         cerrar_solicitudes();
 
-        sem_post(&shm->sem_residencial_listo);
+        //sem_post(&shm->sem_residencial_listo);
     }
     
     // Limpieza
@@ -267,15 +304,6 @@ static void procesar_solicitud(int dia_i, int hora_i) {
 // Finalizar los hilos
 void cerrar_solicitudes() {
 
-    for (int nodo = 0; nodo < NUM_NODOS; nodo++) {
-        liberar_nodo(shm, nodo);
-    }
-
-    for (int hora = 0; hora < HORAS_DIA; hora++) {
-        for (int i = 0; i < solicitudes[hora]; i++) {
-            pthread_join(hilos[hora][i], NULL);
-        }
-    }
 }
 
 // Limpieza antes de matar los hilos
@@ -346,18 +374,22 @@ static void esperar_asignacion(InfoHilo *info) {
     pthread_rwlock_unlock(&shm->mutex_nodos);
     
     sem_wait(&shm->sem_nodos_libres);
-    
-    pthread_rwlock_wrlock(&shm->mutex_nodos);
 
-    if (dia_termino()) {
+    if (hora_termino() || dia_termino()) {
         pthread_rwlock_unlock(&shm->mutex_nodos);
         clock_gettime(CLOCK_MONOTONIC, &(info->tiempo_espera_final));
         double tiempo_espera = calcular_tiempo_transcurrido(&(info->tiempo_espera_inicial), &(info->tiempo_espera_final)) * 1000;
         lock_metricas(shm);
         shm->tiempo_espera_total_ms += tiempo_espera;
         unlock_metricas(shm);
+        if (hora_termino()) {
+            // guardar el estado del nodo y recordar cargarlo en la sig hora
+        }
         return;
     }
+    
+    
+    pthread_rwlock_wrlock(&shm->mutex_nodos);
 
     if (tiene_reserva(info) != -1) {
         pthread_rwlock_unlock(&shm->mutex_nodos);

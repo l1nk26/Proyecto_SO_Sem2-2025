@@ -57,10 +57,15 @@ typedef struct {
     sem_t sem_monitoreo;           // Para monitoreo_de_presion
     sem_t sem_residencial_escoge_maximo; // Para que residencial escoja su maximo de solicitudes
 
-    sem_t sem_nodo_dia_fin;        // Para indicar fin del día
+    sem_t sem_nodo_residencial_dia_fin;        // Para indicar fin del día
+    sem_t sem_nodo_industrial_dia_fin;        // Para indicar fin del día
     sem_t sem_residencial_listo;    // Para indicar que residencial está listo
     sem_t sem_industrial_listo;    // Para indicar que industrial está listo
     sem_t sem_nodos_libres;        // Para controlar acceso a nodos libres
+    
+    // --- SINCRONIZACIÓN POR HORA (LISTOS) ---
+    sem_t sem_nodo_residencial_listo_hora;  // Residencial listo para la hora
+    sem_t sem_nodo_industrial_listo_hora;   // Industrial listo para la hora
     
     // --- CONTROL DE SOLICITUDES ---
     int max_solicitudes_residencial; // Máximo de solicitudes residenciales por día

@@ -124,7 +124,7 @@ int main(void) {
         return EXIT_FAILURE;
     }
     
-    printf("[Residencial] Proceso iniciado (PID: %d)\n", getpid());
+    printf("[Residencial] (%06ld) Proceso iniciado (PID: %d)\n", obtener_timestamp_ms(), getpid());
     
     inicializar_semaforos();
 
@@ -156,8 +156,8 @@ int main(void) {
             // esperar señal de hora simulada
             sem_wait(&shm->sem_nodo_residencial);
             
-            printf("[Residencial] Día %d, Hora %d: Generando solicitudes...\n", 
-            dia_actual, hora_actual);
+            printf("[Residencial] (%06ld) Día %d, Hora %d: Generando solicitudes...\n", 
+            obtener_timestamp_ms(), dia_actual, hora_actual);
 
             // generar hilos
             procesar_solicitud(dia_actual - 1, i);
@@ -181,7 +181,7 @@ int main(void) {
     
     // Limpieza
     desconectar_shm(shm);
-    printf("[Residencial] Proceso terminado\n");
+    printf("[Residencial] (%06ld) Proceso terminado\n", obtener_timestamp_ms());
     
     return EXIT_SUCCESS;
 }
@@ -206,7 +206,7 @@ static void inicializar_y_configurar(void) {
 static void manejador_senal(int sig) {
     (void)sig;
     proceso_terminado = 1;
-    printf("[Residencial] Señal recibida. Terminando proceso...\n");
+    printf("[Residencial] (%06ld) Señal recibida. Terminando proceso...\n", obtener_timestamp_ms());
 }
 
 // [MIN_SOLICITUDES to MAX_SOLICITUDES] dependiendo de max_solicitudes
@@ -295,26 +295,26 @@ static void* hilo_solicitud(void *arg) {
     // Generar número aleatorio para determinar la acción
     double prob = (double)rand_r(&seed) / RAND_MAX;
 
-    int s = 0;
+    double s = 0;
     if (prob < PROBABILIDAD_RESERVA) {
-        s = rand_r(&seed) / RAND_MAX * 0.5f; // las reservas suceden hasta casi media hora depues de iniciar el bloque horario
+        s = rand_r(&seed) / (double)RAND_MAX * 0.5; // las reservas suceden hasta casi media hora depues de iniciar el bloque horario
         usleep(1000000 * s);
         pthread_testcancel();
-        printf("[Residencial] Solicitud de reserva, usuario %d\n", info->usuario_id);
+        printf("[Residencial] (%06ld) Solicitud de reserva, usuario %d\n", obtener_timestamp_ms(), info->usuario_id);
 
         esperar_asignacion(info);
     } else if (prob < 0.75) {
-        s = rand_r(&seed) / RAND_MAX; // en cualquier momento se puede consultar presion
+        s = rand_r(&seed) / (double)RAND_MAX; // en cualquier momento se puede consultar presion
         usleep(1000000 * s);
         pthread_testcancel();
-        printf("[Residencial] Solicitud de consulta de presión, usuario %d\n", info->usuario_id);
+        printf("[Residencial] (%06ld) Solicitud de consulta de presión, usuario %d\n", obtener_timestamp_ms(), info->usuario_id);
 
         consultar_presion(info);
     } else { // en los primeros 45 minutos se cancelan solicitudes
-        s = rand_r(&seed) / RAND_MAX * 0.75;
+        s = rand_r(&seed) / (double)RAND_MAX * 0.75;
         usleep(1000000 * s);
         pthread_testcancel();   
-        printf("[Residencial] Solicitud de cancelación, usuario %d\n", info->usuario_id);
+        printf("[Residencial] (%06ld) Solicitud de cancelación, usuario %d\n", obtener_timestamp_ms(), info->usuario_id);
 
         cancelar_solicitud(info);
     }
@@ -325,7 +325,7 @@ static void* hilo_solicitud(void *arg) {
     unlock_metricas(shm);
 
     // Sincronizar salida para evitar mensajes mezclados
-    printf("[Residencial] Hilo %d terminado\n", info->usuario_id);
+    printf("[Residencial] (%06ld) Hilo %d terminado\n", obtener_timestamp_ms(), info->usuario_id);
     fflush(stdout);
 
     pthread_cleanup_pop(1);
@@ -396,8 +396,8 @@ static void consumir_agua(InfoHilo *info) {
     shm->total_metros_cubicos += consumo / 1000.0;
     if (consumo > LIMITE_CONSUMO_CRITICO) {
         shm->senales_criticas++;
-        printf("[Residencial] Solicitud %d: Consumo crítico de %.2f litros\n", 
-                info->usuario_id, consumo);
+        printf("[Residencial] (%06ld) Solicitud %d: Consumo crítico de %.2f litros\n", 
+                obtener_timestamp_ms(), info->usuario_id, consumo);
     } 
     else 
     {
@@ -405,8 +405,8 @@ static void consumir_agua(InfoHilo *info) {
     }
     unlock_metricas(shm);
     
-    printf("[Residencial] Solicitud %d: Consumo  %.2f litros\n", 
-           info->usuario_id, consumo);
+    printf("[Residencial] (%06ld) Solicitud %d: Consumo  %.2f litros\n", 
+           obtener_timestamp_ms(), info->usuario_id, consumo);
 }
 
 // Estado de cancelar_solicitud -> generar_amonestacion | consumo
@@ -465,8 +465,8 @@ static void consultar_presion(InfoHilo *info) {
     shm->tiempo_espera_total_ms += tiempo_espera;
     unlock_metricas(shm);
     
-    printf("[Residencial] Solicitud %d: Presión disponible - %d/%d nodos libres\n", 
-           info->usuario_id, nodos_disponibles, NUM_NODOS);
+    printf("[Residencial] (%06ld) Solicitud %d: Presión disponible - %d/%d nodos libres\n", 
+           obtener_timestamp_ms(), info->usuario_id, nodos_disponibles, NUM_NODOS);
 
     
 }

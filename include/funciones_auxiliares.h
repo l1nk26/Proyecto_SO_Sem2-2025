@@ -9,6 +9,29 @@ static int poisson_ppf(double lambda, double p);
 
 double calcular_tiempo_transcurrido(const struct timespec *inicio, const struct timespec *fin);
 
+// Función para obtener timestamp en ms desde el inicio del proceso
+static long obtener_timestamp_ms(void) {
+    static struct timespec inicio;
+    static int inicializado = 0;
+    struct timespec ahora;
+    
+    if (!inicializado) {
+        clock_gettime(CLOCK_MONOTONIC, &inicio);
+        inicializado = 1;
+    }
+    
+    clock_gettime(CLOCK_MONOTONIC, &ahora);
+    long segundos = ahora.tv_sec - inicio.tv_sec;
+    long nanosegundos = ahora.tv_nsec - inicio.tv_nsec;
+    
+    if (nanosegundos < 0) {
+        segundos -= 1;
+        nanosegundos += 1000000000L;
+    }
+    
+    return segundos * 1000 + nanosegundos / 1000000;
+}
+
 // Implementacion
 static double factorial(int n) {
     if (n <= 1) return 1;

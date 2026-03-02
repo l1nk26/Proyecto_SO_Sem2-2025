@@ -21,7 +21,7 @@ static void manejador_senal(int sig);
 
 // Variables globales para el manejador de señales
 static volatile sig_atomic_t simulacion_terminada = 0;
-static pid_t pids[4] = {0};
+static pid_t pids[4] = {0, 0, 0, 0};
 
 int main(int argc, char** argv) {
 
@@ -59,8 +59,11 @@ int main(int argc, char** argv) {
     
     pids[0] = lanzar_proceso("residencial");
     pids[1] = lanzar_proceso("industrial");
+    pids[2] = 0;
+    pids[3] = 0;
     // pids[2] = lanzar_proceso("auditor");
     // pids[3] = lanzar_proceso("monitor");
+
 
 
     
@@ -118,9 +121,10 @@ int main(int argc, char** argv) {
             //sem_wait(&shm->sem_auditor);
             //sem_wait(&shm->sem_monitoreo);
         }
-        printf("a");
-        sem_post(&shm->sem_nodo_dia_fin);
-        sem_post(&shm->sem_nodo_dia_fin);
+        if (dia < DIAS_SIMULACION) {
+            sem_post(&shm->sem_nodo_dia_fin);
+            sem_post(&shm->sem_nodo_dia_fin);
+        }
 
     }
     
@@ -129,7 +133,7 @@ int main(int argc, char** argv) {
     printf("[Líder] Simulación completada. Enviando señales de terminación...\n");
     
     // Enviar SIGTERM a todos los procesos hijos
-/*     for (int i = 0; i < 1; i++) { // Solo verificar el proceso residencial
+    for (int i = 0; i < 1; i++) { // Solo verificar el proceso residencial
         if (pids[i] > 0) {
             printf("[Líder] Enviando SIGTERM a PID %d\n", pids[i]);
             if (kill(pids[i], SIGTERM) < 0) {
@@ -152,7 +156,7 @@ int main(int argc, char** argv) {
                 }
             }
         }
-    } */
+    } 
     
     // Mostrar resultados finales
     mostrar_resultados(shm);

@@ -34,4 +34,11 @@ void unlock_metricas(MemoriaCompartida *shm);
 // --- FUNCIONES ADICIONALES PARA SINCRONIZACIÓN ---
 void set_max_solicitudes_residencial(MemoriaCompartida *shm, int max_solicitudes);
 
+// --- CONTROL DE MODO FAST ---
+// Leer el valor de microseconds de forma segura (con semáforo)
+int leer_microseconds(MemoriaCompartida *shm);
+
+// Establecer el valor de microseconds (solo para uso en eco_flow_main)
+void set_microseconds(MemoriaCompartida *shm, int valor);
+
 #endif // IPC_UTILS_H

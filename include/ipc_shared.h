@@ -69,6 +69,9 @@ typedef struct {
     
     // --- CONTROL DE SOLICITUDES ---
     int max_solicitudes_residencial; // Máximo de solicitudes residenciales por día
+
+    int microseconds;
+    sem_t microseconds_sem;
     
     // --- SINCRONIZACIÓN GLOBAL DE NODOS ---
     pthread_rwlock_t mutex_nodos;   // Lock global para acceso a nodos

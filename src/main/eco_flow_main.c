@@ -9,6 +9,7 @@
 #include <signal.h>
 #include <errno.h>
 #include "ipc_shared.h"
+#include "ipc_utils.h"
 #include <stdbool.h>
 
 // Prototipos
@@ -25,9 +26,11 @@ static pid_t pids[4] = {0, 0, 0, 0};
 
 int main(int argc, char** argv) {
 
-    bool fast = false;
-    if (argc > 1) {
-        fast = strcmp(argv[1], "--fast") == 0;
+    int microseconds = 1000000;
+    if (argc > 2) {
+        if (strcmp(argv[1], "--microseconds") == 0 || strcmp(argv[1], "-m") == 0  ) {
+            microseconds = atoi(argv[2]);
+        }
     }
     
     MemoriaCompartida *shm = NULL;
@@ -44,6 +47,7 @@ int main(int argc, char** argv) {
     
     // Inicializar memoria compartida
     inicializar_memoria(shm);
+    set_microseconds(shm, microseconds);  // 1000000 microseconds si --fast, 0 si normal
     printf("[Líder] Memoria compartida creada e inicializada (%d nodos)\n", NUM_NODOS);
     
     // Configurar manejador de señales
@@ -106,10 +110,9 @@ int main(int argc, char** argv) {
 
 
             // Simular una "hora" de trabajo (1 segundo = 1 hora simulada)
-            if (!fast) {
-                sleep(1);
-            }
-    
+            usleep(microseconds);
+            
+
             // Mostrar progreso cada 6 horas
             if (hora % 6 == 0) {
                 printf("[Líder] Día %d, Hora %d: Simulación activa...\n", dia, hora);
@@ -253,6 +256,10 @@ static void inicializar_memoria(MemoriaCompartida *shm) {
     // Inicializar control de solicitudes
     shm->max_solicitudes_residencial = 0;
     
+    // Inicializar microseconds y su semáforo
+    shm->microseconds = 0;
+    sem_init(&shm->microseconds_sem, 1, 1);
+    
     // Inicializar rwlock global para nodos
     pthread_rwlockattr_t rwlock_attr;
     pthread_rwlockattr_init(&rwlock_attr);
@@ -279,6 +286,9 @@ static void destruir_memoria_compartida(MemoriaCompartida *shm, int shm_fd) {
     sem_destroy(&shm->sem_industrial_listo);
     sem_destroy(&shm->sem_residencial_escoge_maximo);
     sem_destroy(&shm->sem_nodos_libres);
+    
+    // Destruir semáforo de microseconds
+    sem_destroy(&shm->microseconds_sem);
     
     // Destruir rwlock global
     pthread_rwlock_destroy(&shm->mutex_nodos);

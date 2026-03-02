@@ -145,3 +145,37 @@ void set_max_solicitudes_residencial(MemoriaCompartida *shm, int max_solicitudes
     if (shm == NULL) return;
     shm->max_solicitudes_residencial = max_solicitudes;
 }
+
+// ============================================================================
+// CONTROL DE MODO FAST
+// ============================================================================
+
+// Leer el valor de microseconds de forma segura (con semáforo)
+// Retorna el valor actual de microseconds
+int leer_microseconds(MemoriaCompartida *shm) {
+    if (shm == NULL) return 0;
+    
+    // Adquirir semáforo para lectura segura
+    sem_wait(&shm->microseconds_sem);
+    
+    int valor = shm->microseconds;
+    
+    // Liberar semáforo
+    sem_post(&shm->microseconds_sem);
+    
+    return valor;
+}
+
+// Establecer el valor de microseconds (solo para uso en eco_flow_main)
+// Escribe el valor de forma segura (con semáforo)
+void set_microseconds(MemoriaCompartida *shm, int valor) {
+    if (shm == NULL) return;
+    
+    // Adquirir semáforo para escritura segura
+    sem_wait(&shm->microseconds_sem);
+    
+    shm->microseconds = valor;
+    
+    // Liberar semáforo
+    sem_post(&shm->microseconds_sem);
+}

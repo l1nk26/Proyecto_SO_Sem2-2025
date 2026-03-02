@@ -9,6 +9,7 @@
 #include <signal.h>
 #include <errno.h>
 #include "ipc_shared.h"
+#include <stdbool.h>
 
 // Prototipos
 static int crear_memoria_compartida(MemoriaCompartida **shm);
@@ -22,7 +23,12 @@ static void manejador_senal(int sig);
 static volatile sig_atomic_t simulacion_terminada = 0;
 static pid_t pids[4] = {0};
 
-int main(void) {
+int main(int argc, char** argv) {
+
+    bool fast = false;
+    if (argc > 1) {
+        fast = strcmp(argv[1], "--fast") == 0;
+    }
     
     MemoriaCompartida *shm = NULL;
     int shm_fd;
@@ -97,7 +103,9 @@ int main(void) {
 
 
             // Simular una "hora" de trabajo (1 segundo = 1 hora simulada)
-            sleep(1);
+            if (!fast) {
+                sleep(1);
+            }
     
             // Mostrar progreso cada 6 horas
             if (hora % 6 == 0) {

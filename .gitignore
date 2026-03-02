@@ -1,5 +1,5 @@
-./build
-./logs
+build/
+logs/
 salida_ordenada.txt
 salida.txt
 ordenar_logs.py

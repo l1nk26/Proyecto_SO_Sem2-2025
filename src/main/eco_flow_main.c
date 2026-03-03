@@ -90,7 +90,7 @@ int main(int argc, char** argv) {
     
     // Bucle principal de simulación (30 "días")
     printf("[Líder] Iniciando simulación de %d días...\n", DIAS_SIMULACION);
-    sleep(1);
+
 
     for (int dia = 1; dia <= DIAS_SIMULACION && !simulacion_terminada; dia++) {
     
@@ -99,34 +99,36 @@ int main(int argc, char** argv) {
         shm->dia_actual = dia;
 
         for (int hora = HORA_INICIO; hora < HORA_FIN && !simulacion_terminada; hora++) {
-            //sem_wait(&shm->sem_residencial_listo);
             shm->hora_actual = hora;
             
-            // Señalar a todos los procesos que pasó una hora
-            sem_post(&shm->sem_nodo_industrial);
-            sem_post(&shm->sem_nodo_residencial);
+            // Esperar a que los nodos estén listos para la hora
+            sem_wait(&shm->sem_nodo_residencial_listo_hora);
+            sem_wait(&shm->sem_nodo_industrial_listo_hora);
+            
+            // Dar paso a los nodos para que procesen la hora
+
             sem_post(&shm->sem_auditor);
             sem_post(&shm->sem_monitoreo);
 
-
             // Simular una "hora" de trabajo (1 segundo = 1 hora simulada)
             usleep(microseconds);
-            
 
+            sem_post(&shm->sem_nodo_residencial);
+            sem_post(&shm->sem_nodo_industrial);
+            
             // Mostrar progreso cada 6 horas
             if (hora % 6 == 0) {
                 printf("[Líder] Día %d, Hora %d: Simulación activa...\n", dia, hora);
             }
 
-            sem_post(&shm->sem_nodo_residencial);
-            sem_post(&shm->sem_nodo_industrial);
-            //sem_wait(&shm->sem_nodo_residencial);
-            //sem_wait(&shm->sem_auditor);
+            // Esperar a que los nodos terminen la hora
+            sem_wait(&shm->sem_nodo_residencial_listo_hora);
+            sem_wait(&shm->sem_nodo_industrial_listo_hora);
             //sem_wait(&shm->sem_monitoreo);
         }
         if (dia < DIAS_SIMULACION) {
-            sem_post(&shm->sem_nodo_dia_fin);
-            sem_post(&shm->sem_nodo_dia_fin);
+            sem_post(&shm->sem_nodo_residencial_dia_fin);
+            sem_post(&shm->sem_nodo_industrial_dia_fin);
         }
 
     }
@@ -245,13 +247,20 @@ static void inicializar_memoria(MemoriaCompartida *shm) {
     sem_init(&shm->sem_nodo_residencial, 1, 0);
     sem_init(&shm->sem_auditor, 1, 0);
     sem_init(&shm->sem_monitoreo, 1, 0);
+
+    // Inicializar semáforos de sincronización por hora (listos)
+    sem_init(&shm->sem_nodo_residencial_listo_hora, 1, 0);
+    sem_init(&shm->sem_nodo_industrial_listo_hora, 1, 0);
     
     // Inicializar semáforos adicionales para sincronización entre procesos
-    sem_init(&shm->sem_nodo_dia_fin, 1, 0);
+    sem_init(&shm->sem_nodo_residencial_dia_fin, 1, 0);
+    sem_init(&shm->sem_nodo_industrial_dia_fin, 1, 0);
     sem_init(&shm->sem_residencial_listo, 1, 0);
     sem_init(&shm->sem_industrial_listo, 1, 0);
     sem_init(&shm->sem_residencial_escoge_maximo, 1, 0);
     sem_init(&shm->sem_nodos_libres, 1, NUM_NODOS);
+    sem_init(&shm->sem_sync_residencial, 1, 0);
+    sem_init(&shm->sem_sync_industrial, 1, 0);
     
     // Inicializar control de solicitudes
     shm->max_solicitudes_residencial = 0;
@@ -281,11 +290,16 @@ static void destruir_memoria_compartida(MemoriaCompartida *shm, int shm_fd) {
     sem_destroy(&shm->sem_monitoreo);
     
     // Destruir semáforos adicionales
-    sem_destroy(&shm->sem_nodo_dia_fin);
+    sem_destroy(&shm->sem_nodo_residencial_dia_fin);
+    sem_destroy(&shm->sem_nodo_industrial_dia_fin);
     sem_destroy(&shm->sem_residencial_listo);
     sem_destroy(&shm->sem_industrial_listo);
     sem_destroy(&shm->sem_residencial_escoge_maximo);
     sem_destroy(&shm->sem_nodos_libres);
+    sem_destroy(&shm->sem_nodo_residencial_listo_hora);
+    sem_destroy(&shm->sem_nodo_industrial_listo_hora);
+    sem_destroy(&shm->sem_sync_residencial);
+    sem_destroy(&shm->sem_sync_industrial);
     
     // Destruir semáforo de microseconds
     sem_destroy(&shm->microseconds_sem);

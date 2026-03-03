@@ -13,108 +13,44 @@
 // Constantes para el nodo industrial
 #define HORAS_DIA 12
 #define MAX_SOLICITUDES_RESIDENCIAL 200
-#define PROBABILIDAD_RESERVA 0.5
+#define PROBABILIDAD_RESERVACION 0.5
 #define LIMITE_CONSUMO_CRITICO 500.0
 #define MAX_USERS 12
 #define USER_INDEX 100
 
 
-// Variables globales
-static volatile sig_atomic_t proceso_terminado = 0;
-static MemoriaCompartida *shm = NULL;
-
-int microseconds;
+static int max_solicitudes; // Maximas solicitudes que pueden haber en un dia
+static int solicitudes[HORAS_DIA]; // Cada entrada indica el nro de solicitudes en esa hora
 
 
-// Vector de solicitudes por hora
-static int solicitudes[HORAS_DIA];
+// Almacen de metadatos.
+InfoHilo informacion_hilos[DIAS_SIMULACION][HORAS_DIA][MAX_SOLICITUDES_R];
 
 
-// Maximas solicitudes que pueden haber en un dia
-static int max_solicitudes;
-
-
-
-// ya no me están evaluando eficiencia en memoria wasaaaa
-InfoHilo informacion_hilos[DIAS_SIMULACION][HORAS_DIA][MAX_SOLICITUDES_RESIDENCIAL];
-
-
-
-// funciona para saber cuantas solicitudes son hechas en un dia en una hora.
+// indice metadatos (para obtener el tamaño de informacion_hilos[_][_][i]).
 int numero_solicitudes[DIAS_SIMULACION][HORAS_DIA] = {0};
 
+
 pthread_t hilos[HORAS_DIA][MAX_SOLICITUDES_RESIDENCIAL]; // depues puede cambiarse para lograr mejor eficiencia en espacio
-
-sem_t sem_dia;
-sem_t sem_hora;
-
-bool dia_terminado = false;
-bool hora_terminado = false;
-
-static void inicializar_semaforos() {
-    sem_init(&sem_dia, 0, 1);
-    sem_init(&sem_hora, 0, 1);
-}
-
-// consultar si el dia termino
-static bool dia_termino() {
-    bool x;
-    sem_wait(&sem_dia);
-    x = dia_terminado;
-    sem_post(&sem_dia);
-    return x;
-}
-
-static void dia_set(bool terminado) {
-    sem_wait(&sem_dia);
-    hora_terminado = terminado;
-    sem_post(&sem_dia);
-}
-
-static bool hora_termino() {
-    bool x;
-    sem_wait(&sem_hora);
-    x = hora_terminado;
-    sem_post(&sem_hora);
-    return x;
-}
-
-
-static void hora_set(bool terminado) {
-    sem_wait(&sem_hora);
-    hora_terminado = terminado;
-    sem_post(&sem_hora);
-}
-
-
 
 // Prototipos CONFIG
 static void manejador_senal(int sig);
 static void inicializar_y_configurar(void);
 
 // Funciones de simulación
-static void generar_numero_solicitudes(void);
+static void generar_solicitudes(void);
+
+static void crear_solicitudes();
 static void actualizar_nro_solicitudes(int dia_i, int hora_i);
-static void procesar_solicitud(int dia_i, int hora_i);
-void cerrar_solicitudes();
-void cleanup_handler(void *arg);
+static void lanzar_hilos_solicitud(int dia_i, int hora_i);
 static void* hilo_solicitud(void *arg);
-static void esperar_asignacion(InfoHilo *info);
-static void consumir_agua(InfoHilo *info);
-static void cancelar_solicitud(InfoHilo *info);
-static void generar_amonestacion(InfoHilo *info);
-static void pagar_tarifa_excedente(InfoHilo *info, int nodo_id);
-static void consultar_presion(InfoHilo *info);
-static double generar_consumo_litros(void);
-static int obtener_nodo_disponible(void);
-static int tiene_reserva(InfoHilo *info);
 
 static void crear_solicitudes() {
     // asignar el maximo de solicitudes para el dia
     max_solicitudes = 250 - shm->max_solicitudes_residencial;
     
     // Generar numero de solicitudes para el dia
-    generar_numero_solicitudes();
+    generar_solicitudes();
 }
 
 int main(void) {
@@ -147,7 +83,7 @@ int main(void) {
 
         sem_post(&shm->sem_industrial_listo);
 
-        dia_set(false);
+        set_ha_terminado_el_dia_actual(false);
 
         // 12 horas
         for (int i = 0; i < HORAS_DIA; i++) {
@@ -168,7 +104,7 @@ int main(void) {
                     obtener_timestamp_ms(), dia_actual, hora_actual);
                 
             // generar hilos
-            procesar_solicitud(dia_actual - 1, i);
+            lanzar_hilos_solicitud(dia_actual - 1, i);
             
             
             // Esperar señal del líder para terminar procesos
@@ -176,9 +112,9 @@ int main(void) {
             sem_wait(&shm->sem_sync_industrial);
             
             if (i == HORAS_DIA - 1) 
-            dia_set(true);
+            set_ha_terminado_el_dia_actual(true);
             
-            hora_set(true);
+            set_ha_terminado_la_hora_actual(true);
             // Esperar a que todos los hilos terminen antes de avisar al líder 
             // (En esperar asignacion debo guardar el estado de los hilos que no pudieron ingresar al sistema para dejarlos para la siguiente hora)
             {}
@@ -200,7 +136,7 @@ int main(void) {
             //printf("[Industrial] (%06ld) Día %d, Hora %d: PUDO LIBERAR...\n", obtener_timestamp_ms(), dia_actual, hora_actual);
 
 
-            hora_set(false);
+            set_ha_terminado_la_hora_actual(false);
 
             // Avisar al líder que terminamos la hora
             sem_post(&shm->sem_nodo_industrial_listo_hora);
@@ -210,7 +146,7 @@ int main(void) {
         
         sem_wait(&shm->sem_nodo_industrial_dia_fin);
 
-        dia_set(true);
+        set_ha_terminado_el_dia_actual(true);
 
         //sem_post(&shm->sem_industrial_listo);
     }
@@ -243,10 +179,12 @@ static void manejador_senal(int sig) {
     (void)sig;
     proceso_terminado = 1;
     printf("[Industrial] (%06ld) Señal recibida. Terminando proceso...\n", obtener_timestamp_ms());
+    if (debug) mostrar_contenido(informacion_hilos, numero_solicitudes, "Industrial");
+
 }
 
 // [MIN_SOLICITUDES to MAX_SOLICITUDES] dependiendo de max_solicitudes
-static void generar_numero_solicitudes(void) {
+static void generar_solicitudes(void) {
 
     int total_solicitudes = 0;
     
@@ -280,19 +218,19 @@ static void actualizar_nro_solicitudes(int dia_i, int hora_i) {
 }
 
 // Procesar solicitudes de esta hora y dia (recibe indice de dia, hora y la tabla de hilos)
-static void procesar_solicitud(int dia_i, int hora_i) {
+static void lanzar_hilos_solicitud(int dia_i, int hora_i) {
     // Crear hilo para cada solicitud
 
     for (int i = 0; i < solicitudes[hora_i]; i++) {
         
         // Inicializamos su espacio
         InfoHilo *info = &informacion_hilos[dia_i][hora_i][i];
-        info->usuario_id = rand() % MAX_USERS + USER_INDEX;
+        info->usuario_id = rand() % MAX_USERS_I + USER_INDEX_I;
         info->hilo_id = i;
         // info->tiempo_espera = 0; // tiempo de espera en ms - no existe en la estructura
         info->m3_consumidos = 0;
+        info->edo_solicitud = PENDIENTE;
         info->operacion = NINGUNA;
-        info->edo_solicitud = DESCONOCIDO;
         
         
         pthread_create(&hilos[hora_i][i], NULL, hilo_solicitud, &informacion_hilos[dia_i][hora_i][i]);
@@ -300,288 +238,55 @@ static void procesar_solicitud(int dia_i, int hora_i) {
 
 }
 
-// Limpieza antes de matar los hilos
-void cleanup_handler(void *arg) {
-    InfoHilo *datos = (InfoHilo *)arg;
-    datos->edo_solicitud = DESCONOCIDO;
-}
-
 // Función que ejecutarán los hilos
 static void* hilo_solicitud(void *arg) {
     InfoHilo *info = (InfoHilo *)arg;
-    unsigned int seed = (unsigned int)pthread_self() ^ (unsigned int)time(NULL); 
-    pthread_cleanup_push(cleanup_handler, info);
+    //unsigned int seed = (unsigned int)pthread_self() ^ (unsigned int)time(NULL); 
+    //pthread_cleanup_push(cleanup_handler, info);
 
     clock_gettime(CLOCK_MONOTONIC, &info->tiempo_espera_inicial);
 
     // Generar número aleatorio para determinar la acción
-    double prob = (double)rand_r(&seed) / RAND_MAX;
+    double prob = (double)generar_random_range(0,1, &info->hilo_id);
+    double h = (double)generar_random_range(0,1, &info->hilo_id);
 
-    double h = rand_r(&seed) / (double)RAND_MAX;
-    if (prob < PROBABILIDAD_RESERVA) {
-        usleep(microseconds * h * 0.5); // 30m max
-        pthread_testcancel();
-        printf("[Industrial] (%06ld) Solicitud de reserva, usuario %d\n", obtener_timestamp_ms(), info->usuario_id);
+    if (prob < PROBABILIDAD_RESERVACION) {
+        // las reservas suceden hasta casi media hora depues de iniciar el bloque horario
+        usleep(microseconds * h * 0.5);
+        //pthread_testcancel();
 
-        esperar_asignacion(info);
+        esperar_asignacion(info, "Industrial");
     } else if (prob < 0.75) {
-        usleep(microseconds * h * 0.98);// en cualquier momento
-        pthread_testcancel();
-        printf("[Industrial] (%06ld) Solicitud de consulta de presión, usuario %d\n", obtener_timestamp_ms(), info->usuario_id);
+        // en cualquier momento se puede consultar presion
+        usleep(microseconds * h * 0.98);
+        //pthread_testcancel();
 
-        consultar_presion(info);
+
+        consultar_presion(info, "Industrial");
     } else { 
         usleep(microseconds * h * 0.75);// 45 minutos
-        pthread_testcancel();   
-        printf("[Industrial] (%06ld) Solicitud de cancelación, usuario %d\n", obtener_timestamp_ms(), info->usuario_id);
+        //pthread_testcancel();   
+        //printf("[Industrial] (%06ld) Solicitud de cancelación, usuario %d\n", obtener_timestamp_ms(), info->usuario_id);
 
-        cancelar_solicitud(info);
+        cancelar_solicitud(info, "Industrial");
     }
     
+    // Sincronizar salida para evitar mensajes mezclados
+    if (debug){
+        mostrar_estado_detalles_hilo(info, "Finalizando", "Industrial");
+    }
+    fflush(stdout);
+
+    //pthread_cleanup_pop(1);
+
+    if (get_operacion(info) == DESCONOCIDO) {
+        return NULL;
+    }
+
     // aumentar el numero de consultas
     lock_metricas(shm);
     shm->total_consultas_realizadas++;
     unlock_metricas(shm);
-
-    // Sincronizar salida para evitar mensajes mezclados
-    printf("[Industrial] (%06ld) Hilo %d terminado\n", obtener_timestamp_ms(), info->usuario_id);
-    fflush(stdout);
-
-    pthread_cleanup_pop(1);
+    
     return NULL;
-}
-
-// Estado de esperar_asignacion -> reserva -> consumo
-static void esperar_asignacion(InfoHilo *info) {
-    
-    pthread_rwlock_wrlock(&shm->mutex_nodos);
-
-    if (hora_termino() || dia_termino()) {
-        pthread_rwlock_unlock(&shm->mutex_nodos);
-        clock_gettime(CLOCK_MONOTONIC, &(info->tiempo_espera_final));
-        double tiempo_espera = calcular_tiempo_transcurrido(&(info->tiempo_espera_inicial), &(info->tiempo_espera_final)) * 1000;
-        lock_metricas(shm);
-        shm->tiempo_espera_total_ms += tiempo_espera;
-        unlock_metricas(shm);
-        if (hora_termino()) {
-            // guardar el estado del nodo y recordar cargarlo en la sig hora
-        }        printf("[Industrial] (%06ld) TERMINANDO %d. Terminando proceso...\n", obtener_timestamp_ms(), info->usuario_id);
-        sem_post(&shm->sem_nodos_libres);
-
-
-        return;
-    }
-
-    int nodo = obtener_nodo_disponible();
-    if (nodo == -1) {
-        lock_metricas(shm);
-        // Esto va aqui o en la consulta??
-        shm->total_nodos_encontrados_ocupados++;
-        unlock_metricas(shm);
-    }
-    pthread_rwlock_unlock(&shm->mutex_nodos);
-    
-    sem_wait(&shm->sem_nodos_libres);
-
-    if (hora_termino() || dia_termino()) {
-        clock_gettime(CLOCK_MONOTONIC, &(info->tiempo_espera_final));
-        double tiempo_espera = calcular_tiempo_transcurrido(&(info->tiempo_espera_inicial), &(info->tiempo_espera_final)) * 1000;
-        lock_metricas(shm);
-        shm->tiempo_espera_total_ms += tiempo_espera;
-        unlock_metricas(shm);
-        if (hora_termino()) {
-            // guardar el estado del nodo y recordar cargarlo en la sig hora
-        }        printf("[Industrial] (%06ld) TERMINANDO %d. Terminando proceso...\n", obtener_timestamp_ms(), info->usuario_id);
-
-        sem_post(&shm->sem_nodos_libres);
-
-        return;
-    }
-    
-    pthread_rwlock_wrlock(&shm->mutex_nodos);
-
-    if (hora_termino() || dia_termino()) {
-        pthread_rwlock_unlock(&shm->mutex_nodos);
-        clock_gettime(CLOCK_MONOTONIC, &(info->tiempo_espera_final));
-        double tiempo_espera = calcular_tiempo_transcurrido(&(info->tiempo_espera_inicial), &(info->tiempo_espera_final)) * 1000;
-        lock_metricas(shm);
-        shm->tiempo_espera_total_ms += tiempo_espera;
-        unlock_metricas(shm);
-        if (hora_termino()) {
-            // guardar el estado del nodo y recordar cargarlo en la sig hora
-        }        printf("[Industrial] (%06ld) TERMINANDO %d. Terminando proceso...\n", obtener_timestamp_ms(), info->usuario_id);
-
-        sem_post(&shm->sem_nodos_libres);
-
-        return;
-    }
-
-    if (tiene_reserva(info) != -1) {
-        pthread_rwlock_unlock(&shm->mutex_nodos);
-        info->edo_solicitud = DESCONOCIDO;
-        sem_post(&shm->sem_nodos_libres);
-        printf("[Industrial] (%06ld) TERMINANDO %d. Terminando proceso...\n", obtener_timestamp_ms(), info->usuario_id);
-        return;
-    }
-
-    nodo = obtener_nodo_disponible();
-    if (nodo == -1) {
-        pthread_rwlock_unlock(&shm->mutex_nodos);
-        info->edo_solicitud = DESCONOCIDO;
-        sem_post(&shm->sem_nodos_libres);
-        printf("[Industrial] (%06ld) TERMINANDO %d. Terminando proceso...\n", obtener_timestamp_ms(), info->usuario_id);
-        return;
-    }
-
-    reservar_nodo(shm, nodo, info->usuario_id);
-
-    clock_gettime(CLOCK_MONOTONIC, &(info->tiempo_espera_final));
-    double tiempo_espera = calcular_tiempo_transcurrido(&(info->tiempo_espera_inicial), &(info->tiempo_espera_final)) * 1000;
-    
-    consumir_agua(info);
-    
-    lock_metricas(shm);
-    shm->tiempo_espera_total_ms += tiempo_espera;
-    unlock_metricas(shm);
-
-    pthread_rwlock_unlock(&shm->mutex_nodos);
-}
-
-// Consumir
-static void consumir_agua(InfoHilo *info) {
-    double consumo = generar_consumo_litros();
-    
-    lock_metricas(shm);
-    shm->total_metros_cubicos += consumo / 1000.0;
-    if (consumo > LIMITE_CONSUMO_CRITICO) {
-        shm->senales_criticas++;
-        printf("[Industrial] (%06ld) Solicitud %d: Consumo crítico de %.2f litros\n", 
-                obtener_timestamp_ms(), info->usuario_id, consumo);
-    } 
-    else 
-    {
-        shm->senales_estandar++;
-    }
-    unlock_metricas(shm);
-    
-    printf("[Industrial] (%06ld) Solicitud %d: Consumo  %.2f litros\n", 
-           obtener_timestamp_ms(), info->usuario_id, consumo);
-}
-
-// Estado de cancelar_solicitud -> generar_amonestacion | consumo
-static void cancelar_solicitud(InfoHilo *info) {
-    pthread_rwlock_wrlock(&shm->mutex_nodos);
-
-    if (hora_termino() || dia_termino()) {
-        pthread_rwlock_unlock(&shm->mutex_nodos);
-        clock_gettime(CLOCK_MONOTONIC, &(info->tiempo_espera_final));
-        double tiempo_espera = calcular_tiempo_transcurrido(&(info->tiempo_espera_inicial), &(info->tiempo_espera_final)) * 1000;
-        lock_metricas(shm);
-        shm->tiempo_espera_total_ms += tiempo_espera;
-        unlock_metricas(shm);
-        if (hora_termino()) {
-            // guardar el estado del nodo y recordar cargarlo en la sig hora
-        }        printf("[Industrial] (%06ld) TERMINANDO %d. Terminando proceso...\n", obtener_timestamp_ms(), info->usuario_id);
-        sem_post(&shm->sem_nodos_libres);
-
-
-        return;
-    }
-
-    int nodo = tiene_reserva(info);
-    
-    if (nodo < 0) {
-        generar_amonestacion(info);
-        info->edo_solicitud = PROCESADA;
-    }
-    else {
-        pagar_tarifa_excedente(info, nodo);
-        liberar_nodo(shm, nodo);
-        info->edo_solicitud = PROCESADA;
-    }
-
-    clock_gettime(CLOCK_MONOTONIC, &(info->tiempo_espera_final)); // fin de la espera del hilo
-    double tiempo_espera = calcular_tiempo_transcurrido(&(info->tiempo_espera_inicial), &(info->tiempo_espera_final)) * 1000;
-    
-    lock_metricas(shm);
-    shm->tiempo_espera_total_ms += tiempo_espera;
-    unlock_metricas(shm);
-
-    pthread_rwlock_unlock(&shm->mutex_nodos);
-}
-
-static void generar_amonestacion(InfoHilo *info) {
-    lock_metricas(shm);
-    shm->amonestaciones_digitales++;
-    unlock_metricas(shm);
-}
-
-static void pagar_tarifa_excedente(InfoHilo *info, int nodo_id) {
-    liberar_nodo(shm, nodo_id);
-}
-
-static void consultar_presion(InfoHilo *info) {
-    pthread_rwlock_rdlock(&shm->mutex_nodos);
-
-    if (hora_termino() || dia_termino()) {
-        pthread_rwlock_unlock(&shm->mutex_nodos);
-        clock_gettime(CLOCK_MONOTONIC, &(info->tiempo_espera_final));
-        double tiempo_espera = calcular_tiempo_transcurrido(&(info->tiempo_espera_inicial), &(info->tiempo_espera_final)) * 1000;
-        lock_metricas(shm);
-        shm->tiempo_espera_total_ms += tiempo_espera;
-        unlock_metricas(shm);
-        if (hora_termino()) {
-            // guardar el estado del nodo y recordar cargarlo en la sig hora
-        }        printf("[Industrial] (%06ld) TERMINANDO %d. Terminando proceso...\n", obtener_timestamp_ms(), info->usuario_id);
-        sem_post(&shm->sem_nodos_libres);
-
-
-        return;
-    }
-    
-    int nodos_disponibles = 0;
-    for (int i = 0; i < NUM_NODOS; i++) {
-        if (!shm->valvulas[i].ocupado) {
-            nodos_disponibles++;
-        }
-    }
-    
-    pthread_rwlock_unlock(&shm->mutex_nodos);
-
-    clock_gettime(CLOCK_MONOTONIC, &(info->tiempo_espera_final)); // fin de la espera del hilo
-    double tiempo_espera = calcular_tiempo_transcurrido(&(info->tiempo_espera_inicial), &(info->tiempo_espera_final)) * 1000;
-    
-    lock_metricas(shm);
-    shm->tiempo_espera_total_ms += tiempo_espera;
-    unlock_metricas(shm);
-    
-    printf("[Industrial] (%06ld) Solicitud %d: Presión disponible - %d/%d nodos libres\n", 
-           obtener_timestamp_ms(), info->usuario_id, nodos_disponibles, NUM_NODOS);
-}
-
-// Generar consumo entre 50 y 750 litros
-static double generar_consumo_litros(void) {
-    unsigned int seed = (unsigned int)pthread_self();
-
-    return 50.0 + (rand_r(&seed) % 701);
-}
-
-// retorna el nodo reservado o -1
-static int obtener_nodo_disponible(void) {
-    for (int i = 0; i < NUM_NODOS; i++) {
-        if (!shm->valvulas[i].ocupado) {
-            return i;
-        }
-    }
-    return -1; // No hay nodos disponibles
-}
-
-// retorna el nodo reservado o -1
-static int tiene_reserva(InfoHilo *info) {
-    for (int i = 0; i < NUM_NODOS; i++) {
-        if (shm->valvulas[i].ocupado && shm->valvulas[i].usuario_id == info->usuario_id) {
-            return i;
-        }
-    }
-    return -1;
 }

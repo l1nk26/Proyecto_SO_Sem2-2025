@@ -18,22 +18,6 @@
 #define MAX_USERS 12
 #define USER_INDEX 100
 
-enum operacion_realizada {NINGUNA = 0, RESERVACION, CANCELACION, CONSULTA_PRESION};
-enum estado_de_finalizacion {DESCONOCIDO = 0, AMONESTADO, EXITO};
-
-typedef struct {
-    int usuario_id; // iniciado en 0
-    int hilo_id; // iniciado en 0
-    int dia_simulacion;
-    struct timespec tiempo_espera_inicial;
-    struct timespec tiempo_espera_final;
-    int litros_consumidos;
-    int op_realzada;
-    int nodo_asignado;
-    int edo_final;
-} InfoHilo;
-
-
 
 // Variables globales
 static volatile sig_atomic_t proceso_terminado = 0;
@@ -306,9 +290,9 @@ static void procesar_solicitud(int dia_i, int hora_i) {
         info->usuario_id = rand() % MAX_USERS + USER_INDEX;
         info->hilo_id = i;
         // info->tiempo_espera = 0; // tiempo de espera en ms - no existe en la estructura
-        info->litros_consumidos = 0;
-        info->op_realzada = NINGUNA;
-        info->edo_final = DESCONOCIDO;
+        info->m3_consumidos = 0;
+        info->operacion = NINGUNA;
+        info->edo_solicitud = DESCONOCIDO;
         
         
         pthread_create(&hilos[hora_i][i], NULL, hilo_solicitud, &informacion_hilos[dia_i][hora_i][i]);
@@ -319,7 +303,7 @@ static void procesar_solicitud(int dia_i, int hora_i) {
 // Limpieza antes de matar los hilos
 void cleanup_handler(void *arg) {
     InfoHilo *datos = (InfoHilo *)arg;
-    datos->edo_final = DESCONOCIDO;
+    datos->edo_solicitud = DESCONOCIDO;
 }
 
 // Función que ejecutarán los hilos
@@ -434,7 +418,7 @@ static void esperar_asignacion(InfoHilo *info) {
 
     if (tiene_reserva(info) != -1) {
         pthread_rwlock_unlock(&shm->mutex_nodos);
-        info->edo_final = DESCONOCIDO;
+        info->edo_solicitud = DESCONOCIDO;
         sem_post(&shm->sem_nodos_libres);
         printf("[Industrial] (%06ld) TERMINANDO %d. Terminando proceso...\n", obtener_timestamp_ms(), info->usuario_id);
         return;
@@ -443,7 +427,7 @@ static void esperar_asignacion(InfoHilo *info) {
     nodo = obtener_nodo_disponible();
     if (nodo == -1) {
         pthread_rwlock_unlock(&shm->mutex_nodos);
-        info->edo_final = DESCONOCIDO;
+        info->edo_solicitud = DESCONOCIDO;
         sem_post(&shm->sem_nodos_libres);
         printf("[Industrial] (%06ld) TERMINANDO %d. Terminando proceso...\n", obtener_timestamp_ms(), info->usuario_id);
         return;
@@ -508,12 +492,12 @@ static void cancelar_solicitud(InfoHilo *info) {
     
     if (nodo < 0) {
         generar_amonestacion(info);
-        info->edo_final = AMONESTADO;
+        info->edo_solicitud = PROCESADA;
     }
     else {
         pagar_tarifa_excedente(info, nodo);
         liberar_nodo(shm, nodo);
-        info->edo_final = EXITO;
+        info->edo_solicitud = PROCESADA;
     }
 
     clock_gettime(CLOCK_MONOTONIC, &(info->tiempo_espera_final)); // fin de la espera del hilo

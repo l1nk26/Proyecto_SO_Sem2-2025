@@ -43,6 +43,23 @@ static void actualizar_nro_solicitudes(int dia_i, int hora_i);
 static void lanzar_hilos_solicitud(int dia_i, int hora_i);
 static void* hilo_solicitud(void *arg);
 
+// pasar de a a b
+void intercambiar_estados(InfoHilo *a, InfoHilo *b) {
+    InfoHilo temp = *a;
+    //*a = *b;
+    *b = temp;
+}
+
+void recuperar_solicitudes_aplazadas(int *recuperados, int dia_i, int hora_i) {
+    *recuperados = 0;
+    for (int i = 0; i < numero_solicitudes[dia_i][hora_i]; i++) {
+        if (informacion_hilos[dia_i][hora_i][i].edo_solicitud == APLAZADA) {
+            intercambiar_estados(&informacion_hilos[dia_i][hora_i][i], &informacion_hilos[dia_i][hora_i + 1][*recuperados]);
+            (*recuperados)++;
+        }
+    }
+    numero_solicitudes_aplazadas = 0;
+}
 
 // [MIN_SOLICITUDES to MAX_SOLICITUDES] dependiendo de max_solicitudes
 static void generar_solicitudes(void) {
@@ -113,8 +130,17 @@ static void actualizar_nro_solicitudes(int dia_i, int hora_i) {
 // Procesar solicitudes de esta hora y dia (recibe indice de dia, hora y la tabla de hilos)
 static void lanzar_hilos_solicitud(int dia_i, int hora_i) {
     // Crear hilo para cada solicitud
+    int recuperados = 0;
+    if (numero_solicitudes_aplazadas > 0) {
+        recuperar_solicitudes_aplazadas(&recuperados, dia_i, hora_i - 1);
+    }
 
-    for (int i = 0; i < solicitudes[hora_i]; i++) {
+    for (int i = 0; i < recuperados; i++) {
+        pthread_create(&hilos[hora_i][i], NULL, hilo_solicitud, &informacion_hilos[dia_i][hora_i][i]);
+    }
+    solicitudes[hora_i] += recuperados;
+
+    for (int i = recuperados; i < solicitudes[hora_i]; i++) {
         
         // Inicializamos su espacio
         InfoHilo *info = &informacion_hilos[dia_i][hora_i][i];
@@ -261,23 +287,47 @@ static void* hilo_solicitud(void *arg) {
     double prob = (double)generar_random_range(0,1, &info->hilo_id);
     double h = (double)generar_random_range(0,1, &info->hilo_id);
 
-    if (prob < PROBABILIDAD_RESERVACION) {
-        // las reservas suceden hasta casi media hora depues de iniciar el bloque horario
-        usleep(microseconds * h * 0.5);
-        //pthread_testcancel();
+    // No espera si está aplazada.
+    if (info->edo_solicitud == APLAZADA) {
+        if (prob < PROBABILIDAD_RESERVACION) {
+            // las reservas suceden hasta casi media hora depues de iniciar el bloque horario
+            //usleep(microseconds * h * 0.5);
+            //pthread_testcancel();
 
-        esperar_asignacion(info, "Residencial");
-    } else if (prob < 0.75) {
-        // en cualquier momento se puede consultar presion
-        usleep(microseconds * h * 0.98);
-        //pthread_testcancel();
+            esperar_asignacion(info, "Residencial");
+        } else if (prob < 0.75) {
+            // en cualquier momento se puede consultar presion
+            //usleep(microseconds * h * 0.98);
+            //pthread_testcancel();
 
-        consultar_presion(info, "Residencial");
-    } else { // en los primeros 45 minutos se cancelan solicitudes
-        usleep(microseconds * h * 0.75);
-        //pthread_testcancel();   
+            consultar_presion(info, "Residencial");
+        } else { // en los primeros 45 minutos se cancelan solicitudes
+            //usleep(microseconds * h * 0.75);
+            //pthread_testcancel();   
 
-        cancelar_solicitud(info, "Residencial");
+            cancelar_solicitud(info, "Residencial");
+        }
+    }
+    else {
+
+        if (prob < PROBABILIDAD_RESERVACION) {
+            // las reservas suceden hasta casi media hora depues de iniciar el bloque horario
+            usleep(microseconds * h * 0.5);
+            //pthread_testcancel();
+    
+            esperar_asignacion(info, "Residencial");
+        } else if (prob < 0.75) {
+            // en cualquier momento se puede consultar presion
+            usleep(microseconds * h * 0.98);
+            //pthread_testcancel();
+    
+            consultar_presion(info, "Residencial");
+        } else { // en los primeros 45 minutos se cancelan solicitudes
+            usleep(microseconds * h * 0.75);
+            //pthread_testcancel();   
+    
+            cancelar_solicitud(info, "Residencial");
+        }
     }
 
     // Sincronizar salida para evitar mensajes mezclados

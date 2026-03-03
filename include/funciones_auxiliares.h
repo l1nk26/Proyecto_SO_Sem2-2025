@@ -36,7 +36,7 @@
 #define MAX_LITROS_I 950.0
 
 enum operacion {NINGUNA = 0, RESERVACION, CANCELACION, CONSULTA_PRESION};
-enum estados_de_solicitud {PENDIENTE = 0, PROCESADA, CANCELADA, APLAZADA, DESCONOCIDO};
+enum estados_de_solicitud {PENDIENTE = 0, PROCESADA, CANCELADA, APLAZADA, DESCONOCIDO, RECUPERADA};
 
 static const char* nombre_operacion[] = {
     "NINGUNA         ",
@@ -65,7 +65,7 @@ typedef struct {
 
 const bool debug = true;
 int microseconds = 1000000; // 1s por defecto
-
+int numero_solicitudes_aplazadas = 0;
 
 // Variables globales
 static volatile sig_atomic_t proceso_terminado = 0;
@@ -244,6 +244,7 @@ void manejador_de_finalizacion_temprana_dia_hora(void *arg) {
     else {
         set_edo_solicitud(datos, APLAZADA);
         //datos->edo_op_realizada = NINGUNA;
+        numero_solicitudes_aplazadas++;
     }
 
 }

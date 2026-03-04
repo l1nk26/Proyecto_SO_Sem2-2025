@@ -187,7 +187,7 @@ static void inicializar_y_configurar(void) {
     sigaction(SIGINT, &sa, NULL);
     
     // Inicializar semilla aleatoria
-    srand(time(NULL) ^ getpid());
+    srand(SEED_INDUSTRIAL);
 
 
 }   

@@ -15,6 +15,8 @@
 #include "ipc_utils.h"
 #include "ipc_shared.h"
 
+#define SEED_INDUSTRIAL 12345
+#define SEED_RESIDENCIAL 67890
 
 #define HORAS_DIA 12
 #define PROBABILIDAD_RESERVACION 0.5
@@ -459,6 +461,7 @@ static void consumir_agua(InfoHilo *info, const char *nombre_proceso) {
     
     lock_metricas(shm);
     shm->total_metros_cubicos += consumo / 1000.0;
+    info->m3_consumidos += consumo / 1000.0;
     if (consumo > LIMITE_CONSUMO_CRITICO) {
         shm->senales_criticas++;
         

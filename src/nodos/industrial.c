@@ -133,9 +133,6 @@ int main(void) {
             set_ha_terminado_el_dia_actual(true);
             
             set_ha_terminado_la_hora_actual(true);
-            // Esperar a que todos los hilos terminen antes de avisar al líder 
-            // (En esperar asignacion debo guardar el estado de los hilos que no pudieron ingresar al sistema para dejarlos para la siguiente hora)
-            {}
 
             sem_post(&shm->sem_sync_residencial);
 

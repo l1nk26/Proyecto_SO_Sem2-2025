@@ -218,23 +218,24 @@ int main(void) {
             set_ha_terminado_el_dia_actual(true);
             
             set_ha_terminado_la_hora_actual(true);
-            // Esperar a que todos los hilos terminen antes de avisar al líder 
-            // (En esperar asignacion debo guardar el estado de los hilos que no pudieron ingresar al sistema para dejarlos para la siguiente hora)
-            {}
 
             sem_post(&shm->sem_sync_industrial);
 
             for (int nodo = 0; nodo < NUM_NODOS; nodo++){
-                liberar_nodo(shm, nodo);
+                pthread_rwlock_wrlock(&shm->mutex_nodos);
+                if (shm->valvulas[nodo].ocupado) {
+                    liberar_nodo(shm, nodo);
+                }
+                pthread_rwlock_unlock(&shm->mutex_nodos);
             }
             
             
             //pthread_rwlock_unlock(&shm->mutex_nodos);
-            int sem_val = 0;
+            /*int sem_val = 0;
             sem_getvalue(&shm->sem_nodos_libres, &sem_val);
 
             printf("[Residencial] (%06ld) NODOS LIBRES: %d...\n", obtener_timestamp_ms(), sem_val);
-            
+            */
             // luego espero a que terminen
             for (int h = 0; h < solicitudes[i]; h++) {
                 //printf("[Residencial] (%06ld) ESPERANDO CIERRE %d...\n", obtener_timestamp_ms(), informacion_hilos[dia_actual - 1][i][h].usuario_id);
@@ -244,14 +245,14 @@ int main(void) {
                 pthread_join(hilos[i][h], NULL);
             }
 
-            sem_getvalue(&shm->sem_nodos_libres, &sem_val);
+/*             sem_getvalue(&shm->sem_nodos_libres, &sem_val);
             while (sem_val > 10) {
                 sem_wait(&shm->sem_nodos_libres);
                 sem_getvalue(&shm->sem_nodos_libres, &sem_val);
             }
 
             sem_getvalue(&shm->sem_nodos_libres, &sem_val);
-
+ */
             //printf("[Residencial] (%06ld) NODOS LIBRES 2: %d...\n", obtener_timestamp_ms(), sem_val);
 
             set_ha_terminado_la_hora_actual(false);

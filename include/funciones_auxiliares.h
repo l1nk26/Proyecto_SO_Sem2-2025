@@ -316,7 +316,7 @@ static void consultar_presion(InfoHilo *info, const char *nombre_proceso) {
 
     if (get_ha_terminado_la_hora_actual() || get_ha_terminado_el_dia_actual()) {
         pthread_rwlock_unlock(&shm->mutex_nodos);
-        sem_post(&shm->sem_nodos_libres);
+        //sem_post(&shm->sem_nodos_libres);
 
         manejador_de_finalizacion_temprana_dia_hora(info);
 
@@ -351,7 +351,7 @@ static void cancelar_solicitud(InfoHilo *info, const char *nombre_proceso) {
 
     if (get_ha_terminado_la_hora_actual() || get_ha_terminado_el_dia_actual()) {
         pthread_rwlock_unlock(&shm->mutex_nodos);
-        sem_post(&shm->sem_nodos_libres);
+        //sem_post(&shm->sem_nodos_libres);
 
         manejador_de_finalizacion_temprana_dia_hora(info);
 
@@ -405,7 +405,7 @@ static void esperar_asignacion(InfoHilo *info, const char *nombre_proceso) {
 
     if (get_ha_terminado_la_hora_actual() || get_ha_terminado_el_dia_actual()) {
         pthread_rwlock_unlock(&shm->mutex_nodos);
-        sem_post(&shm->sem_nodos_libres);
+        //sem_post(&shm->sem_nodos_libres);
         manejador_de_finalizacion_temprana_dia_hora(info);
 
         return;

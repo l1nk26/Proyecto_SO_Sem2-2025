@@ -22,7 +22,7 @@ Programa de monitoreo en tiempo real para visualizar el estado de los nodos del 
 ### Opción 1: Compilar y Ejecutar
 ```bash
 cd src/monitor
-chmod +x build_monitor.sh run_monitor.sh
+chmod +x build_monitor.sh
 ./build_monitor.sh
 ```
 Este script:

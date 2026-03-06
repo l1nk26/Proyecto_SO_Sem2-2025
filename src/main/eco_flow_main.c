@@ -36,19 +36,19 @@ int main(int argc, char** argv) {
     MemoriaCompartida *shm = NULL;
     int shm_fd;
     
-    printf("[Líder] Iniciando Eco Flow Simulation...\n");
+    printf("[Orquestador] Iniciando Eco Flow Simulation...\n");
     
     // Crear memoria compartida
     shm_fd = crear_memoria_compartida(&shm);
     if (shm_fd < 0) {
-        fprintf(stderr, "[Líder] Error al crear memoria compartida\n");
+        fprintf(stderr, "[Orquestador] Error al crear memoria compartida\n");
         return EXIT_FAILURE;
     }
     
     // Inicializar memoria compartida
     inicializar_memoria(shm);
     set_microseconds(shm, microseconds);  // 1000000 microseconds si --fast, 0 si normal
-    printf("[Líder] Memoria compartida creada e inicializada (%d nodos)\n", NUM_NODOS);
+    printf("[Orquestador] Memoria compartida creada e inicializada (%d nodos)\n", NUM_NODOS);
     
     // Configurar manejador de señales
     struct sigaction sa;
@@ -59,7 +59,7 @@ int main(int argc, char** argv) {
     sigaction(SIGTERM, &sa, NULL);
     
     // Lanzar procesos de los otros desarrolladores
-    printf("[Líder] Lanzando procesos de simulación...\n");
+    printf("[Orquestador] Lanzando procesos de simulación...\n");
     
     pids[0] = lanzar_proceso("residencial");
     pids[1] = lanzar_proceso("industrial");
@@ -76,20 +76,20 @@ int main(int argc, char** argv) {
         if (pids[i] > 0) { 
             procesos_lanzados++;
         } else {
-            fprintf(stderr, "[Líder] Error: No se pudo lanzar el proceso %d\n", i);
+            fprintf(stderr, "[Orquestador] Error: No se pudo lanzar el proceso %d\n", i);
         }
     }
     
     if (procesos_lanzados < 1) { // Cambiado a 1 para prueba
-        fprintf(stderr, "[Líder] Error: No se pudo lanzar todos los procesos\n");
+        fprintf(stderr, "[Orquestador] Error: No se pudo lanzar todos los procesos\n");
         destruir_memoria_compartida(shm, shm_fd);
         return EXIT_FAILURE;
     } */
     
-    //printf("[Líder] %d procesos lanzados exitosamente\n", procesos_lanzados);
+    //printf("[Orquestador] %d procesos lanzados exitosamente\n", procesos_lanzados);
     
     // Bucle principal de simulación (30 "días")
-    printf("[Líder] Iniciando simulación de %d días...\n", DIAS_SIMULACION);
+    printf("[Orquestador] Iniciando simulación de %d días...\n", DIAS_SIMULACION);
 
 
     for (int dia = 1; dia <= DIAS_SIMULACION && !simulacion_terminada; dia++) {
@@ -118,7 +118,7 @@ int main(int argc, char** argv) {
             
             // Mostrar progreso cada 6 horas
             if (hora % 6 == 0) {
-                printf("[Líder] Día %d, Hora %d: Simulación activa...\n", dia, hora);
+                printf("[Orquestador] Día %d, Hora %d: Simulación activa...\n", dia, hora);
             }
 
             // Esperar a que los nodos terminen la hora
@@ -135,30 +135,30 @@ int main(int argc, char** argv) {
     
     // Terminar simulación
     shm->simulacion_activa = false;
-    printf("[Líder] Simulación completada. Enviando señales de terminación...\n");
+    printf("[Orquestador] Simulación completada. Enviando señales de terminación...\n");
 
 
     // Enviar SIGTERM a todos los procesos hijos
     for (int i = 0; i < 2; i++) { // Solo verificar el proceso residencial
         if (pids[i] > 0) {
-            printf("[Líder] Enviando SIGTERM a PID %d\n", pids[i]);
+            printf("[Orquestador] Enviando SIGTERM a PID %d\n", pids[i]);
             if (kill(pids[i], SIGTERM) < 0) {
-                perror("[Líder] Error al enviar señal");
+                perror("[Orquestador] Error al enviar señal");
             }
         }
     }
     
     // Esperar a que todos los procesos terminen
-    printf("[Líder] Esperando finalización de procesos...\n");
+    printf("[Orquestador] Esperando finalización de procesos...\n");
     for (int i = 0; i < 2; i++) { // Solo verificar el proceso residencial
         if (pids[i] > 0) {
             int status;
             pid_t result = waitpid(pids[i], &status, 0);
             if (result > 0) {
                 if (WIFEXITED(status)) {
-                    printf("[Líder] PID %d terminó con código %d\n", pids[i], WEXITSTATUS(status));
+                    printf("[Orquestador] PID %d terminó con código %d\n", pids[i], WEXITSTATUS(status));
                 } else if (WIFSIGNALED(status)) {
-                    printf("[Líder] PID %d terminó por señal %d\n", pids[i], WTERMSIG(status));
+                    printf("[Orquestador] PID %d terminó por señal %d\n", pids[i], WTERMSIG(status));
                 }
             }
         }
@@ -168,10 +168,10 @@ int main(int argc, char** argv) {
     mostrar_resultados(shm);
     
     // Limpieza
-    printf("[Líder] Limpiando memoria compartida...\n");
+    printf("[Orquestador] Limpiando memoria compartida...\n");
     destruir_memoria_compartida(shm, shm_fd);
     
-    printf("[Líder] Simulación finalizada.\n");
+    printf("[Orquestador] Simulación finalizada.\n");
     return EXIT_SUCCESS;
 }
 
@@ -183,13 +183,13 @@ static int crear_memoria_compartida(MemoriaCompartida **shm) {
     // Crear bloque de memoria compartida
     int shm_fd = shm_open(SHM_NAME, O_CREAT | O_RDWR, 0666);
     if (shm_fd < 0) {
-        perror("[Líder] shm_open");
+        perror("[Orquestador] shm_open");
         return -1;
     }
     
     // Establecer tamaño
     if (ftruncate(shm_fd, sizeof(MemoriaCompartida)) < 0) {
-        perror("[Líder] ftruncate");
+        perror("[Orquestador] ftruncate");
         close(shm_fd);
         shm_unlink(SHM_NAME);
         return -1;
@@ -198,7 +198,7 @@ static int crear_memoria_compartida(MemoriaCompartida **shm) {
     // Mapear a memoria
     *shm = mmap(NULL, sizeof(MemoriaCompartida), PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0);
     if (*shm == MAP_FAILED) {
-        perror("[Líder] mmap");
+        perror("[Orquestador] mmap");
         close(shm_fd);
         shm_unlink(SHM_NAME);
         return -1;
@@ -313,7 +313,7 @@ static void destruir_memoria_compartida(MemoriaCompartida *shm, int shm_fd) {
     
     // Desmapear
     if (munmap(shm, sizeof(MemoriaCompartida)) < 0) {
-        perror("[Líder] munmap");
+        perror("[Orquestador] munmap");
     }
     
     // Cerrar descriptor
@@ -321,7 +321,7 @@ static void destruir_memoria_compartida(MemoriaCompartida *shm, int shm_fd) {
     
     // Eliminar objeto de memoria compartida
     if (shm_unlink(SHM_NAME) < 0) {
-        perror("[Líder] shm_unlink");
+        perror("[Orquestador] shm_unlink");
     }
 }
 
@@ -329,19 +329,19 @@ static pid_t lanzar_proceso(const char *ejecutable) {
     pid_t pid = fork();
     
     if (pid < 0) {
-        perror("[Líder] fork");
+        perror("[Orquestador] fork");
         return -1;
     } else if (pid == 0) {
         // Proceso hijo
         execl(ejecutable, ejecutable, NULL);
         
         // Si execl retorna, hubo un error
-        fprintf(stderr, "[Líder] Error al ejecutar %s: %s\n", ejecutable, strerror(errno));
+        fprintf(stderr, "[Orquestador] Error al ejecutar %s: %s\n", ejecutable, strerror(errno));
         exit(EXIT_FAILURE);
     }
     
     // Proceso padre
-    printf("[Líder] Lanzado %s (PID: %d)\n", ejecutable, pid);
+    printf("[Orquestador] Lanzado %s (PID: %d)\n", ejecutable, pid);
     return pid;
 }
 
@@ -368,5 +368,5 @@ static void mostrar_resultados(const MemoriaCompartida *shm) {
 static void manejador_senal(int sig) {
     (void)sig;
     simulacion_terminada = 1;
-    printf("\n[Líder] Señal recibida. Terminando simulación...\n");
+    printf("\n[Orquestador] Señal recibida. Terminando simulación...\n");
 }

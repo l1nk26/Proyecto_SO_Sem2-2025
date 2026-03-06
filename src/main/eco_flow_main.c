@@ -110,8 +110,10 @@ int main(int argc, char** argv) {
             sem_post(&shm->sem_auditor);
             sem_post(&shm->sem_monitoreo);
 
-            // Simular una "hora" de trabajo (1 segundo = 1 hora simulada)
-            usleep(microseconds);
+            for (int i = 0; i < 60; i++) {
+                usleep(microseconds / 60); // 1 minuto
+                shm->minuto_actual = i;
+            }
 
             sem_post(&shm->sem_nodo_residencial);
             sem_post(&shm->sem_nodo_industrial);

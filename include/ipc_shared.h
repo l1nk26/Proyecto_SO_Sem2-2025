@@ -45,6 +45,7 @@ typedef struct {
     // --- ESTADO DE LA SIMULACIÓN ---
     int dia_actual;                // Del 1 al 30
     int hora_actual;               // De 6 a 18
+    int minuto_actual;
     bool simulacion_activa;        // Pasa a false cuando termina el mes
 
     // --- SINCRONIZACIÓN DE MÉTRICAS ---
@@ -76,6 +77,7 @@ typedef struct {
 
     int microseconds;
     sem_t microseconds_sem;
+
     
     // --- SINCRONIZACIÓN GLOBAL DE NODOS ---
     pthread_rwlock_t mutex_nodos;   // Lock global para acceso a nodos

@@ -274,14 +274,14 @@ static void* hilo_solicitud(void *arg) {
 
     // No espera si está aplazada.
     if (info->edo_solicitud == APLAZADA) {
-        if (prob < PROBABILIDAD_RESERVACION) {
+        if (info->operacion == RESERVACION) {
             // las reservas suceden hasta casi media hora depues de iniciar el bloque horario
             //usleep(microseconds * h * 0.5);
             //pthread_testcancel();
             clock_gettime(CLOCK_MONOTONIC, &info->tiempo_espera_inicial);
 
             esperar_asignacion(info, "Residencial");
-        } else if (prob < 0.75) {
+        } else if (info->operacion == CONSULTA_PRESION) {
             // en cualquier momento se puede consultar presion
             //usleep(microseconds * h * 0.98);
             //pthread_testcancel();

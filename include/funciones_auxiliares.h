@@ -60,6 +60,7 @@ static const char* nombre_estado[] = {
 typedef struct {
     unsigned int usuario_id; // iniciado en 0 | Usuario referenciado
     unsigned int hilo_id; // iniciado en 0 | Indice de hilo
+    int id_nodo; // ID del nodo asignado (-1 si no asignado)
     struct timespec tiempo_espera_inicial;
     struct timespec tiempo_espera_final;
     double m3_consumidos;
@@ -530,6 +531,7 @@ static void esperar_asignacion(InfoHilo *info, const char *nombre_proceso) {
     }
 
     reservar_nodo(shm, nodo, info->usuario_id);
+    info->id_nodo = nodo;  // Asignar el ID del nodo reservado
     consumir_agua(info, nombre_proceso);
     manejador_de_finalizacion_exitosa(info);
     
@@ -539,24 +541,32 @@ static void esperar_asignacion(InfoHilo *info, const char *nombre_proceso) {
 // Consumir
 static void consumir_agua(InfoHilo *info, const char *nombre_proceso) {
     double consumo = generar_consumo_litros(info, nombre_proceso);
-    
-    lock_metricas(shm);
-    shm->total_metros_cubicos += consumo / 1000.0;
-    info->m3_consumidos += consumo / 1000.0;
-    if (consumo > LIMITE_CONSUMO_CRITICO) {
-        shm->senales_criticas++;
-        
-        mostrar_estado_detalles_hilo(info, "Consumo crítico", nombre_proceso);
-        
-    } 
-    else 
-    {
-        shm->senales_estandar++;
-        
-        mostrar_estado_detalles_hilo(info, "Consumo estándar", nombre_proceso);
-        
+    // Actualizar estado del nodo específico en lugar de métricas globales
+    if (info->id_nodo >= 0 && info->id_nodo < NUM_NODOS) {
+        // Reservar nodo para escritura
+        if (reservar_nodo(shm, info->id_nodo, info->hilo_id) == 0) {
+            // Actualizar consumo horario del nodo
+            shm->valvulas[info->id_nodo].consumo_horario += consumo / 1000.0;
+            
+            // Actualizar métricas del hilo
+            info->m3_consumidos += consumo / 1000.0;
+            
+            // Liberar nodo
+            liberar_nodo(shm, info->id_nodo);
+            
+            // Mostrar estado según nivel de consumo
+            if (consumo > LIMITE_CONSUMO_CRITICO) {
+                mostrar_estado_detalles_hilo(info, "Consumo crítico", nombre_proceso);
+            } else {
+                mostrar_estado_detalles_hilo(info, "Consumo estándar", nombre_proceso);
+            }
+        } else {
+            printf("[%s] Error: No se pudo reservar nodo %d para consumo\n", 
+                   nombre_proceso, info->id_nodo);
+        }
+    } else {
+        printf("[%s] Error: ID de nodo inválido %d\n", nombre_proceso, info->id_nodo);
     }
-    unlock_metricas(shm);
 }
 
 

@@ -9,6 +9,7 @@
 #include <sys/stat.h>
 #include "auditor.h"
 #include "ipc_shared.h"
+#include "ipc_utils.h"
 
 // Variables globales del auditor
 static MemoriaCompartida *shm = NULL;
@@ -117,6 +118,8 @@ void* hilo_calculo_horario(void *arg) {
         
         printf("[Auditor-Cálculo] Hora %d procesada. Total: %.2f m³\n", 
                shm->hora_actual, shm->total_metros_cubicos);
+        
+        sem_post(&shm->sem_auditor_terminado);
     }
     
     printf("[Auditor-Cálculo] Hilo terminado\n");

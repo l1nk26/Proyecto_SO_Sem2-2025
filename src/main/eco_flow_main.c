@@ -99,14 +99,8 @@ int main(int argc, char** argv) {
 
     for (int dia = 1; dia <= DIAS_SIMULACION && !simulacion_terminada; dia++) {
     
-    printf("debug");
-    fflush(stdout);
         sem_wait(&shm->sem_residencial_listo); // espera antes de iniciar el dia.
-    printf("debug");
-    fflush(stdout);
         sem_wait(&shm->sem_industrial_listo);
-    printf("debug");
-    fflush(stdout);
         shm->dia_actual = dia;
 
         for (int hora = HORA_INICIO; hora < HORA_FIN && !simulacion_terminada; hora++) {

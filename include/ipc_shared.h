@@ -20,6 +20,7 @@ typedef struct {
     int id_nodo;                   // ID del 0 al 9
     bool ocupado;                  // true = reservado, false = libre
     int usuario_id;                 // ID del usuario que reservó el nodo
+    double consumo_horario;         // Consumo acumulado en la hora git actual
     
     // Candado Lectores/Escritores exclusivo para esta válvula
     pthread_rwlock_t rwlock_nodo;  

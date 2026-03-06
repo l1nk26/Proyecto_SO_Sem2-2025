@@ -84,6 +84,9 @@ typedef struct {
 
     sem_t activador_industrial;
     sem_t activador_residencial;
+    
+    // --- SINCRONIZACIÓN DE AUDITOR ---
+    sem_t sem_auditor_terminado;
 
 } MemoriaCompartida;
 

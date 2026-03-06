@@ -106,6 +106,11 @@ int main(int argc, char** argv) {
         for (int hora = HORA_INICIO; hora < HORA_FIN && !simulacion_terminada; hora++) {
             shm->hora_actual = hora;
             
+            // Resetear consumo horario de todos los nodos al inicio de cada hora
+            for (int nodo = 0; nodo < NUM_NODOS; nodo++) {
+                shm->valvulas[nodo].consumo_horario = 0.0;
+            }
+            
             // Esperar a que los nodos estén listos para la hora
             sem_wait(&shm->sem_nodo_residencial_listo_hora);
             sem_wait(&shm->sem_nodo_industrial_listo_hora);

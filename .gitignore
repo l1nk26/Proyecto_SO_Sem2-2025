@@ -4,6 +4,8 @@ ordenar_logs.py
 eco_flow
 industrial
 residencial
+auditor
+monitor
 script.py
 #monitor/
 *.txt

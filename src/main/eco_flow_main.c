@@ -11,6 +11,7 @@
 #include "ipc_shared.h"
 #include "ipc_utils.h"
 #include <stdbool.h>
+#include <funciones_auxiliares.h>
 
 // Prototipos
 static int crear_memoria_compartida(MemoriaCompartida **shm);
@@ -30,6 +31,10 @@ int main(int argc, char** argv) {
     if (argc > 2) {
         if (strcmp(argv[1], "--microseconds") == 0 || strcmp(argv[1], "-m") == 0  ) {
             microseconds = atoi(argv[2]);
+        }
+        if (microseconds < 10000) {
+            printf("[Orquestador] El valor de microseconds debe ser mayor o igual a 10000\n");
+            return EXIT_FAILURE;
         }
     }
     
@@ -360,8 +365,9 @@ static void mostrar_resultados(const MemoriaCompartida *shm) {
     printf("Nodos encontrados ocupados: %d\n", shm->total_nodos_encontrados_ocupados);
     
     if (shm->total_consultas_realizadas > 0) {
-        double eficiencia = shm->tiempo_espera_total_micros / shm->total_consultas_realizadas;
-        printf("Tiempo promedio de espera: %.2f ms\n", eficiencia);
+        //double eficiencia = shm->tiempo_espera_total_micros / shm->total_consultas_realizadas;
+        DT dt = micros_to_DT(shm->tiempo_espera_total_micros, shm->microseconds);
+        printf("Tiempo promedio de espera: [H: %2d, M: %02d, S: %02d]\n", dt.horas, dt.minutos, dt.segundos);
     }
     
     printf("========================================\n");

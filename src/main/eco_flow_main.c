@@ -11,6 +11,7 @@
 #include "ipc_shared.h"
 #include "ipc_utils.h"
 #include <stdbool.h>
+#include <funciones_auxiliares.h>
 
 // Prototipos
 static int crear_memoria_compartida(MemoriaCompartida **shm);
@@ -30,6 +31,10 @@ int main(int argc, char** argv) {
     if (argc > 2) {
         if (strcmp(argv[1], "--microseconds") == 0 || strcmp(argv[1], "-m") == 0  ) {
             microseconds = atoi(argv[2]);
+        }
+        if (microseconds < 10000) {
+            printf("[Orquestador] El valor de microseconds debe ser mayor o igual a 10000\n");
+            return EXIT_FAILURE;
         }
     }
     
@@ -100,6 +105,11 @@ int main(int argc, char** argv) {
 
         for (int hora = HORA_INICIO; hora < HORA_FIN && !simulacion_terminada; hora++) {
             shm->hora_actual = hora;
+            
+            // Resetear consumo horario de todos los nodos al inicio de cada hora
+            for (int nodo = 0; nodo < NUM_NODOS; nodo++) {
+                shm->valvulas[nodo].consumo_horario = 0.0;
+            }
             
             // Esperar a que los nodos estén listos para la hora
             sem_wait(&shm->sem_nodo_residencial_listo_hora);
@@ -328,6 +338,24 @@ static void destruir_memoria_compartida(MemoriaCompartida *shm, int shm_fd) {
 }
 
 static pid_t lanzar_proceso(const char *ejecutable) {
+    // Check if process is already running by looking for it in /proc
+    char cmd[256];
+    snprintf(cmd, sizeof(cmd), "pgrep -f %s", ejecutable);
+    
+    FILE *fp = popen(cmd, "r");
+    if (fp != NULL) {
+        char pid_str[32];
+        if (fgets(pid_str, sizeof(pid_str), fp) != NULL) {
+            // Process is already running
+            pid_t existing_pid = atoi(pid_str);
+            pclose(fp);
+            printf("[Orquestador] Proceso %s ya está ejecutándose (PID: %d)\n", ejecutable, existing_pid);
+            return existing_pid;
+        }
+        pclose(fp);
+    }
+    
+    // Process not running, launch it
     pid_t pid = fork();
     
     if (pid < 0) {
@@ -360,8 +388,9 @@ static void mostrar_resultados(const MemoriaCompartida *shm) {
     printf("Nodos encontrados ocupados: %d\n", shm->total_nodos_encontrados_ocupados);
     
     if (shm->total_consultas_realizadas > 0) {
-        double eficiencia = shm->tiempo_espera_total_micros / shm->total_consultas_realizadas;
-        printf("Tiempo promedio de espera: %.2f ms\n", eficiencia);
+        //double eficiencia = shm->tiempo_espera_total_micros / shm->total_consultas_realizadas;
+        DT dt = micros_to_DT(shm->tiempo_espera_total_micros, shm->microseconds);
+        printf("Tiempo promedio de espera: [H: %2d, M: %02d, S: %02d]\n", dt.horas, dt.minutos, dt.segundos);
     }
     
     printf("========================================\n");

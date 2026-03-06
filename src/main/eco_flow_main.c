@@ -68,7 +68,7 @@ int main(int argc, char** argv) {
     
     pids[0] = lanzar_proceso("residencial");
     pids[1] = lanzar_proceso("industrial");
-    pids[2] = lanzar_proceso("auditor");
+    // pids[2] = lanzar_proceso("auditor");
     pids[3] = 0;
     // pids[3] = lanzar_proceso("monitor");
 
@@ -139,7 +139,7 @@ int main(int argc, char** argv) {
             sem_post(&shm->sem_auditor);
             //sem_post(&shm->sem_monitoreo);
 
-            sem_wait(&shm->sem_auditor_terminado);
+            //sem_wait(&shm->sem_auditor_terminado);
             //sem_wait(&shm->sem_monitoreo_terminado);
         }
         if (dia < DIAS_SIMULACION) {
@@ -349,18 +349,23 @@ static pid_t lanzar_proceso(const char *ejecutable) {
     /*
     char cmd[256];
     snprintf(cmd, sizeof(cmd), "pgrep -f %s", ejecutable);
-    
+    printf("%s\n", cmd);
     FILE *fp = popen(cmd, "r");
     if (fp != NULL) {
         char pid_str[32];
         if (fgets(pid_str, sizeof(pid_str), fp) != NULL) {
+            printf("Process already running: %s", pid_str);
             // Process is already running
             pid_t existing_pid = atoi(pid_str);
             pclose(fp);
+            printf("%d\n", existing_pid);
+            
             printf("[Orquestador] Proceso %s ya está ejecutándose (PID: %d)\n", ejecutable, existing_pid);
             return existing_pid;
+        
+        } else {
+            pclose(fp);
         }
-        pclose(fp);
     }*/
     
     // Process not running, launch it

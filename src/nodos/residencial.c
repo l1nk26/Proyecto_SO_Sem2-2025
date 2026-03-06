@@ -10,6 +10,8 @@
 #include "funciones_auxiliares.h"
 #include "ipc_utils.h"
 
+int hilo_id = 2000;
+
 static int max_solicitudes; // Maximas solicitudes que pueden haber en un dia
 static int solicitudes[HORAS_DIA]; // Cada entrada indica el nro de solicitudes en esa hora
 
@@ -144,7 +146,7 @@ static void lanzar_hilos_solicitud(int dia_i, int hora_i) {
         // Inicializamos su espacio
         InfoHilo *info = &informacion_hilos[dia_i][hora_i][i];
         info->usuario_id = rand() % MAX_USERS_R + USER_INDEX_R;
-        info->hilo_id = i;
+        info->hilo_id = hilo_id++;
         info->id_nodo = -1;  // No asignado aún
         info->m3_consumidos = 0;
         info->edo_solicitud = PENDIENTE;
@@ -286,7 +288,7 @@ static void* hilo_solicitud(void *arg) {
     //unsigned int seed = (unsigned int)pthread_self() ^ (unsigned int)time(NULL); 
 
     //pthread_cleanup_push(manejador_de_finalizacion_temprana_dia_hora, info);
-    unsigned int seed = info->hilo_id;
+    unsigned int seed = (unsigned int)(info->hilo_id + 1) * (unsigned int)info->usuario_id;
 
     // Generar número aleatorio para determinar la acción
     double prob = (double)generar_random_range(0,1, &seed);

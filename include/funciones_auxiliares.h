@@ -371,13 +371,17 @@ static void manejador_de_finalizacion_exitosa(void *arg) {
     info->edo_solicitud = PROCESADA;
 }
 
-// No bloquea semaforos
+// v1
 // retorna el nodo reservado o -1
 static int obtener_nodo_disponible(InfoHilo *info) {
+    
     for (int i = 0; i < NUM_NODOS; i++) {
+        pthread_rwlock_rdlock(&shm->valvulas[i].rwlock_nodo);
         if (!shm->valvulas[i].ocupado) {
+            pthread_rwlock_unlock(&shm->valvulas[i].rwlock_nodo);
             return i;
         }
+        pthread_rwlock_unlock(&shm->valvulas[i].rwlock_nodo);
     }
 
     lock_metricas(shm);
@@ -420,7 +424,7 @@ static void consultar_presion(InfoHilo *info, const char *nombre_proceso) {
     
 }
 
-
+// v1
 // Estado de cancelar_solicitud -> generar_amonestacion | consumo
 static void cancelar_solicitud(InfoHilo *info, const char *nombre_proceso) {
 
@@ -429,14 +433,9 @@ static void cancelar_solicitud(InfoHilo *info, const char *nombre_proceso) {
 
     mostrar_estado_detalles_hilo(info, "Solicitando cancelación", nombre_proceso);
 
-    pthread_rwlock_wrlock(&shm->mutex_nodos);
 
     if (get_ha_terminado_la_hora_actual() || get_ha_terminado_el_dia_actual()) {
-        pthread_rwlock_unlock(&shm->mutex_nodos);
-        //sem_post(&shm->sem_nodos_libres);
-
         manejador_de_finalizacion_temprana_dia_hora(info);
-
         return;
     }
 
@@ -452,10 +451,6 @@ static void cancelar_solicitud(InfoHilo *info, const char *nombre_proceso) {
     }
 
     manejador_de_finalizacion_exitosa(info);
-
-    pthread_rwlock_unlock(&shm->mutex_nodos);
-
-
 }
 
 
@@ -472,7 +467,7 @@ static void pagar_tarifa_excedente(InfoHilo *info, int nodo_id) {
 }
 
 
-
+// v1
 // Estado de esperar_asignacion -> reserva -> consumo
 static void esperar_asignacion(InfoHilo *info, const char *nombre_proceso) {
 
@@ -482,77 +477,58 @@ static void esperar_asignacion(InfoHilo *info, const char *nombre_proceso) {
 
     mostrar_estado_detalles_hilo(info, "Esperando asignación", nombre_proceso);
     
+    sem_wait(&shm->sem_nodos_libres);
 
     pthread_rwlock_wrlock(&shm->mutex_nodos);
+    int nodo = obtener_nodo_disponible(info);
 
-    if (get_ha_terminado_la_hora_actual() || get_ha_terminado_el_dia_actual()) {
+    // Teoricamente no deberia de ser -1, pero por si acaso
+    if (nodo == -1 || verificar_reserva(info) != -1) {
         pthread_rwlock_unlock(&shm->mutex_nodos);
-        //sem_post(&shm->sem_nodos_libres);
-        manejador_de_finalizacion_temprana_dia_hora(info);
-
+        sem_post(&shm->sem_nodos_libres);
+        manejador_de_finalizacion_temprana(info);
         return;
     }
 
-    pthread_rwlock_unlock(&shm->mutex_nodos);
-    
-    sem_wait(&shm->sem_nodos_libres);
-
     if (get_ha_terminado_la_hora_actual() || get_ha_terminado_el_dia_actual()) {
+        pthread_rwlock_unlock(&shm->mutex_nodos);
         sem_post(&shm->sem_nodos_libres);
         manejador_de_finalizacion_temprana_dia_hora(info);      
 
         return;
     }
-    
-    
-    pthread_rwlock_wrlock(&shm->mutex_nodos);
-
-    if (get_ha_terminado_la_hora_actual() || get_ha_terminado_el_dia_actual()) {
-        pthread_rwlock_unlock(&shm->mutex_nodos);
-        sem_post(&shm->sem_nodos_libres);
-        manejador_de_finalizacion_temprana_dia_hora(info);
-
-        return;
-    }
-
-    if (verificar_reserva(info) != -1) {
-        pthread_rwlock_unlock(&shm->mutex_nodos);
-        sem_post(&shm->sem_nodos_libres);
-        manejador_de_finalizacion_temprana(info);
-        return;
-    }
-
-    int nodo = obtener_nodo_disponible(info);
-    if (nodo == -1) {
-        pthread_rwlock_unlock(&shm->mutex_nodos);
-        sem_post(&shm->sem_nodos_libres);
-        manejador_de_finalizacion_temprana(info);
-        return;
-    }
+    pthread_rwlock_unlock(&shm->mutex_nodos);
 
     reservar_nodo(shm, nodo, info->usuario_id);
+
     info->id_nodo = nodo;  // Asignar el ID del nodo reservado
+
+
+    pthread_rwlock_wrlock(&shm->valvulas[nodo].rwlock_nodo); // temporal
     consumir_agua(info, nombre_proceso);
+    pthread_rwlock_unlock(&shm->valvulas[nodo].rwlock_nodo); // temporal
+
+
     manejador_de_finalizacion_exitosa(info);
     
-    pthread_rwlock_unlock(&shm->mutex_nodos);
 }
 
 // Consumir
 static void consumir_agua(InfoHilo *info, const char *nombre_proceso) {
+
+    unsigned int seed = (unsigned int)(info->hilo_id + 1) * (unsigned int)info->usuario_id;
+
     double consumo = generar_consumo_litros(info, nombre_proceso);
     // Actualizar estado del nodo específico en lugar de métricas globales
     if (info->id_nodo >= 0 && info->id_nodo < NUM_NODOS) {
         // Reservar nodo para escritura
-        if (reservar_nodo(shm, info->id_nodo, info->hilo_id) == 0) {
+        //if (reservar_nodo(shm, info->id_nodo, info->hilo_id) == 0) {
             // Actualizar consumo horario del nodo
+
             shm->valvulas[info->id_nodo].consumo_horario += consumo / 1000.0;
             
             // Actualizar métricas del hilo
             info->m3_consumidos += consumo / 1000.0;
-            
-            // Liberar nodo
-            liberar_nodo(shm, info->id_nodo);
             
             // Mostrar estado según nivel de consumo
             if (consumo > LIMITE_CONSUMO_CRITICO) {
@@ -560,33 +536,36 @@ static void consumir_agua(InfoHilo *info, const char *nombre_proceso) {
             } else {
                 mostrar_estado_detalles_hilo(info, "Consumo estándar", nombre_proceso);
             }
-        } else {
-            printf("[%s] Error: No se pudo reservar nodo %d para consumo\n", 
-                   nombre_proceso, info->id_nodo);
-        }
+        //} else {
+        //    printf("[%s] Error: No se pudo reservar nodo %d para consumo\n", 
+        //           nombre_proceso, info->id_nodo);
+        //}
     } else {
         printf("[%s] Error: ID de nodo inválido %d\n", nombre_proceso, info->id_nodo);
     }
 }
 
 
+// v1
 // Generar consumo entre 50 y 750 litros
 static double generar_consumo_litros(InfoHilo *info, const char *nombre_proceso) {
-    unsigned int seed = info->hilo_id;
+    unsigned int seed = (unsigned int)(info->hilo_id + 1) * (unsigned int)info->usuario_id;
     if (strcmp(nombre_proceso, "Residencial") == 0) {
         return generar_random_range(MIN_LITROS_R, MAX_LITROS_R, &seed);
     }
     return generar_random_range(MIN_LITROS_I, MAX_LITROS_I, &seed);
 }
 
-
-// No bloquea semaforos
+// v1
 // retorna el nodo reservado o -1
 static int verificar_reserva(InfoHilo *info) {
     for (int i = 0; i < NUM_NODOS; i++) {
+        pthread_rwlock_rdlock(&shm->valvulas[i].rwlock_nodo);
         if (shm->valvulas[i].ocupado && (unsigned int)shm->valvulas[i].usuario_id == (unsigned int)info->usuario_id) {
+            pthread_rwlock_unlock(&shm->valvulas[i].rwlock_nodo);
             return i;
         }
+        pthread_rwlock_unlock(&shm->valvulas[i].rwlock_nodo);
     }
     return -1;
 }

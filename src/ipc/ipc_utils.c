@@ -83,10 +83,10 @@ int reservar_nodo(MemoriaCompartida *shm, int id_nodo, int usuario_id) {
     // Primero esperar en el semáforo de nodos libres
     
     // Usar wrlock global para marcar el nodo como ocupado
-    // pthread_rwlock_wrlock(&shm->mutex_nodos);
+    pthread_rwlock_wrlock(&shm->valvulas[id_nodo].rwlock_nodo);
     shm->valvulas[id_nodo].ocupado = true;
     shm->valvulas[id_nodo].usuario_id = usuario_id;
-    // pthread_rwlock_unlock(&shm->mutex_nodos);
+    pthread_rwlock_unlock(&shm->valvulas[id_nodo].rwlock_nodo);
     
     return 0;
 }
@@ -95,10 +95,11 @@ int reservar_nodo(MemoriaCompartida *shm, int id_nodo, int usuario_id) {
 void liberar_nodo(MemoriaCompartida *shm, int id_nodo) {
     if (shm == NULL || id_nodo < 0 || id_nodo >= NUM_NODOS) return;
     
-    // Usar wrlock global para marcar el nodo como libre
-    //pthread_rwlock_wrlock(&shm->mutex_nodos);
+
+    pthread_rwlock_wrlock(&shm->valvulas[id_nodo].rwlock_nodo);
     shm->valvulas[id_nodo].ocupado = false;
-    //pthread_rwlock_unlock(&shm->mutex_nodos);
+    shm->valvulas[id_nodo].usuario_id = -1;
+    pthread_rwlock_unlock(&shm->valvulas[id_nodo].rwlock_nodo);
     
     sem_post(&shm->sem_nodos_libres);
 }

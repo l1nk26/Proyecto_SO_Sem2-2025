@@ -95,7 +95,9 @@ int main(int argc, char** argv) {
     
     // Bucle principal de simulación (30 "días")
     printf("[Orquestador] Iniciando simulación de %d días...\n", DIAS_SIMULACION);
-
+    sleep(2);
+    sem_post(&shm->activador_industrial);
+    sem_post(&shm->activador_residencial);
 
     for (int dia = 1; dia <= DIAS_SIMULACION && !simulacion_terminada; dia++) {
     
@@ -274,6 +276,8 @@ static void inicializar_memoria(MemoriaCompartida *shm) {
     sem_init(&shm->sem_nodos_libres, 1, NUM_NODOS);
     sem_init(&shm->sem_sync_residencial, 1, 0);
     sem_init(&shm->sem_sync_industrial, 1, 0);
+    sem_init(&shm->activador_industrial, 1, 0);
+    sem_init(&shm->activador_residencial, 1, 0);
     
     // Inicializar control de solicitudes
     shm->max_solicitudes_residencial = 0;
@@ -389,8 +393,8 @@ static void mostrar_resultados(const MemoriaCompartida *shm) {
     printf("Nodos encontrados ocupados: %d\n", shm->total_nodos_encontrados_ocupados);
     
     if (shm->total_consultas_realizadas > 0) {
-        //double eficiencia = shm->tiempo_espera_total_micros / shm->total_consultas_realizadas;
-        DT dt = micros_to_DT(shm->tiempo_espera_total_micros, shm->microseconds);
+        double eficiencia = shm->tiempo_espera_total_micros / shm->total_consultas_realizadas;
+        DT dt = micros_to_DT(eficiencia, shm->microseconds);
         printf("Tiempo promedio de espera: [H: %2d, M: %02d, S: %02d]\n", dt.horas, dt.minutos, dt.segundos);
     }
     

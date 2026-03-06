@@ -72,6 +72,7 @@ int main(void) {
         fprintf(stderr, "[Industrial] Error: No se pudo conectar a memoria compartida\n");
         return EXIT_FAILURE;
     }
+    sem_wait(&shm->activador_industrial);
     
     printf("[Industrial] (%06ld) Proceso iniciado (PID: %d)\n", obtener_timestamp_micros(), getpid());
     
@@ -83,6 +84,7 @@ int main(void) {
 
     // Bucle principal de simulación
     while (shm->simulacion_activa && !proceso_terminado) {
+
 
         printf("[Industrial] (%06ld) Esperando a residencial para escoger máximo...\n", obtener_timestamp_micros());
         sem_wait(&shm->sem_residencial_escoge_maximo); // esperar a residencial

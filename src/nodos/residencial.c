@@ -167,6 +167,7 @@ int main(void) {
         fprintf(stderr, "[Residencial] Error: No se pudo conectar a memoria compartida\n");
         return EXIT_FAILURE;
     }
+    sem_wait(&shm->activador_residencial);
     
     printf("[Residencial] (%06ld) Proceso iniciado (PID: %d)\n", obtener_timestamp_micros(), getpid());
     

@@ -117,10 +117,7 @@ int main(int argc, char** argv) {
             sem_wait(&shm->sem_nodo_residencial_listo_hora);
             sem_wait(&shm->sem_nodo_industrial_listo_hora);
             
-            // Dar paso a los nodos para que procesen la hora
 
-            sem_post(&shm->sem_auditor);
-            sem_post(&shm->sem_monitoreo);
 
             for (int i = 0; i < 60; i++) {
                 usleep(microseconds / 60); // 1 minuto
@@ -139,6 +136,12 @@ int main(int argc, char** argv) {
             sem_wait(&shm->sem_nodo_residencial_listo_hora);
             sem_wait(&shm->sem_nodo_industrial_listo_hora);
             //sem_wait(&shm->sem_monitoreo);
+
+            sem_post(&shm->sem_auditor);
+            //sem_post(&shm->sem_monitoreo);
+
+            sem_wait(&shm->sem_auditor_terminado);
+            //sem_wait(&shm->sem_monitoreo_terminado);
         }
         if (dia < DIAS_SIMULACION) {
             sem_post(&shm->sem_nodo_residencial_dia_fin);
@@ -261,6 +264,7 @@ static void inicializar_memoria(MemoriaCompartida *shm) {
     sem_init(&shm->sem_nodo_industrial, 1, 0);
     sem_init(&shm->sem_nodo_residencial, 1, 0);
     sem_init(&shm->sem_auditor, 1, 0);
+    sem_init(&shm->sem_auditor_terminado, 1, 0);
     sem_init(&shm->sem_monitoreo, 1, 0);
 
     // Inicializar semáforos de sincronización por hora (listos)

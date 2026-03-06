@@ -145,6 +145,7 @@ static void lanzar_hilos_solicitud(int dia_i, int hora_i) {
         InfoHilo *info = &informacion_hilos[dia_i][hora_i][i];
         info->usuario_id = rand() % MAX_USERS_R + USER_INDEX_R;
         info->hilo_id = i;
+        info->id_nodo = -1;  // No asignado aún
         info->m3_consumidos = 0;
         info->edo_solicitud = PENDIENTE;
         info->operacion = NINGUNA;

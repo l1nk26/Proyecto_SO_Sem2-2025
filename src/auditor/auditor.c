@@ -101,6 +101,7 @@ void* hilo_validacion(void *arg) {
     return NULL;
 }
 
+// Calcula el consumo por hora
 void* hilo_calculo_horario(void *arg) {
     (void)arg;
     
@@ -124,7 +125,7 @@ void* hilo_calculo_horario(void *arg) {
 
 void procesar_alerta_critica(const MensajeAlerta *msg) {
     // Decidir aleatoriamente si es crítico (aprueba) o estándar (multa)
-    srand(time(NULL));
+    srand(2);
     int es_critico = rand() % 2; // 0=estándar, 1=crítico
     
     // Proteger actualización de métricas con mutex
@@ -161,7 +162,7 @@ void calcular_consumo_total_horario(void) {
     pthread_mutex_lock(&shm->mutex_metricas);
     shm->total_metros_cubicos += metros_cubicos;
     pthread_mutex_unlock(&shm->mutex_metricas);
-}
+} 
 
 int main(void) {
     printf("[Auditor] Iniciando proceso auditor...\n");

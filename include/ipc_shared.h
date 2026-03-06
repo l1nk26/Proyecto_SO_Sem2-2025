@@ -56,7 +56,7 @@ typedef struct {
     // Semaforos para que cada proceso sepa cuando paso una hora
     sem_t sem_nodo_industrial;     // Para nodo_industrial
     sem_t sem_nodo_residencial;    // Para nodo_residencial  
-    sem_t sem_auditor;             // Para auditor_de_flujo
+    sem_t sem_auditor;        // Para auditor_de_flujo
     sem_t sem_monitoreo;           // Para monitoreo_de_presion
     sem_t sem_residencial_escoge_maximo; // Para que residencial escoja su maximo de solicitudes
     sem_t sem_sync_residencial;

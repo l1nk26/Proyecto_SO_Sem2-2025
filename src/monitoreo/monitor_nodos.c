@@ -13,6 +13,7 @@
 #include <math.h>
 
 #include "../../include/ipc_utils.h"
+#include "../../include/funciones_auxiliares.h"
 
 #define RESET "\033[0m"
 #define RED "\033[31m"
@@ -27,7 +28,7 @@
 #define REVERSE "\033[7m"
 
 static volatile bool running = true;
-static MemoriaCompartida *shm = NULL;
+//static MemoriaCompartida *shm = NULL;
 static int update_interval_ms = 50; 
 
 void limpiar_pantalla(bool clear_all) {
@@ -134,15 +135,21 @@ void imprimir_semaforo_y_estadisticas() {
     
     float porc_libres = (float)sem_value * 100 / NUM_NODOS;
     float porc_ocupados = (float)ocupados * 100 / NUM_NODOS;
-    double t_espera = shm->total_consultas_realizadas > 0 ? 
-                      shm->tiempo_espera_total_ms / shm->total_consultas_realizadas : 0.0;
+    
+    // Calcular tiempo de espera promedio en microsegundos
+    // Nota: 1 minuto simulado = microseconds/60 microsegundos reales
+    double t_espera_promedio_micros = shm->total_consultas_realizadas > 0 ? 
+        (double)(shm->tiempo_espera_total_micros) / (double)(shm->total_consultas_realizadas) : 0.0;
+    
+    
+    DT tiempo_espera_promedio = micros_to_DT(t_espera_promedio_micros, shm->microseconds);
 
     // --- CAJA 1: SEMÁFORO ---
     printf(BOLD CYAN "╔═════════════════════════════════════════════════════════════════════════════╗\n");
-    printf("║" WHITE " %-75s " CYAN " ║\n", "SEMÁFORO DE NODOS LIBRES");
+    printf("║" WHITE " %-74s " CYAN " ║\n", "NODOS");
     printf("╠═════════════════════════════════════════════════════════════════════════════╣\n");
-    printf("║" WHITE " Disponibles: " BOLD GREEN "%02d" RESET WHITE " / " BOLD "%02d" RESET WHITE "(%5.1f%%) %-43s" CYAN "    ║\n", 
-           sem_value, NUM_NODOS, porc_libres, "");
+/*     printf("║" WHITE " Disponibles: " BOLD GREEN "%02d" RESET WHITE " / " BOLD "%02d" RESET WHITE "(%5.1f%%) %-43s" CYAN "    ║\n", 
+           sem_value, NUM_NODOS, porc_libres, ""); */
     
     // Barra visual ajustada a 50 caracteres de ancho interno
     printf("║" WHITE " [");
@@ -159,9 +166,8 @@ void imprimir_semaforo_y_estadisticas() {
     printf(BOLD BLUE "╔═════════════════════════════════════════════════════════════════════════════╗\n");
     printf("║" WHITE " %-75s " BLUE " ║\n", "ESTADÍSTICAS GLOBALES");
     printf("╠═════════════════════════════════════════════════════════════════════════════╣\n");
-    printf("║" WHITE " Ocupados:   " BOLD "%02d/%02d" RESET WHITE " (%5.1f%%) %-47s " BLUE " ║\n", ocupados, NUM_NODOS, porc_ocupados, "");
-    printf("║" WHITE " Total m³:   " BOLD GREEN "%-10.2f" RESET WHITE " %-51s " BLUE " ║\n", shm->total_metros_cubicos, "");
-    printf("║" WHITE " Tiempo esp: " BOLD YELLOW "%-10.1f ms" RESET WHITE " %-48s " BLUE " ║\n", t_espera, "");
+//    printf("║" WHITE " Total m³:   " BOLD GREEN "%-10.2f" RESET WHITE " %-51s " BLUE " ║\n", shm->total_metros_cubicos, "");
+    printf("║" WHITE " Tiempo esp: " BOLD YELLOW "h:m:s  %2d:%2d:%2d" RESET WHITE " %-46s " BLUE " ║\n", tiempo_espera_promedio.horas, tiempo_espera_promedio.minutos, tiempo_espera_promedio.segundos, "");
     printf("╚═════════════════════════════════════════════════════════════════════════════╝\n" RESET);
     fflush(stdout);
 }
@@ -184,9 +190,9 @@ void imprimir_info_sistema() {
 
 void imprimir_controles() {
     printf(DIM "╔═════════════════════════════════════════════════════════════════════════════╗\n");
-    printf("║" WHITE " %-75s " DIM "║\n", "CONTROLES:");
+/*     printf("║" WHITE " %-75s " DIM "║\n", "CONTROLES:");
     printf("║" WHITE " [Ctrl+C] - Salir del monitor %-45s  " DIM "║\n", "");
-    printf("╠═════════════════════════════════════════════════════════════════════════════╣\n");
+    printf("╠═════════════════════════════════════════════════════════════════════════════╣\n"); */
     printf("║" WHITE " Velocidad: %-5d ms (%4.1f FPS) %-43s  " DIM "║\n", update_interval_ms, 1000.0/update_interval_ms, "");
     printf("╚═════════════════════════════════════════════════════════════════════════════╝\n" RESET);
     fflush(stdout);
@@ -202,7 +208,7 @@ int main() {
     
     printf(CYAN BOLD "Iniciando Monitor de Nodos...\n" RESET);
     
-    printf(CYAN "🔍 Buscando sistema Eco Flow...\n" RESET);
+    printf(CYAN "  Buscando sistema Eco Flow...\n" RESET);
     
     // Esperar a que el sistema esté disponible
     int intentos = 0;
@@ -239,7 +245,7 @@ int main() {
     }
     
 /*     printf(GREEN "✓ Sistema detectado y sincronizado\n" RESET);
-    printf("🚀 Iniciando monitoreo en tiempo real...\n");
+    printf("  Iniciando monitoreo en tiempo real...\n");
     printf("   Presione Ctrl+C para salir\n");
     printf("   Velocidad: %dms (%.1f FPS)\n", update_interval_ms, 1000.0 / update_interval_ms);
     sleep(2); */

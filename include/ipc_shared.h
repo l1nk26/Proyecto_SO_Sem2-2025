@@ -4,6 +4,7 @@
 #include <pthread.h>
 #include <stdbool.h>
 #include <semaphore.h>
+#include <stdint.h>
 
 // Nombre del bloque de memoria compartida en /dev/shm/
 #define SHM_NAME "/eco_flow_shm"
@@ -36,7 +37,7 @@ typedef struct {
     int senales_estandar;
     
     // Variables para calcular eficiencia (Monitoreo)
-    double tiempo_espera_total_ms;
+    int64_t tiempo_espera_total_micros; // en microsegundos
     int total_consultas_realizadas;
     int total_nodos_encontrados_ocupados;
 

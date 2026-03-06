@@ -10,9 +10,6 @@
 #include "funciones_auxiliares.h"
 #include "ipc_utils.h"
 
-// Constantes para el nodo residencial
-
-
 static int max_solicitudes; // Maximas solicitudes que pueden haber en un dia
 static int solicitudes[HORAS_DIA]; // Cada entrada indica el nro de solicitudes en esa hora
 
@@ -99,9 +96,9 @@ static void crear_solicitudes() {
 static void manejador_senal(int sig) {
     (void)sig;
     proceso_terminado = 1;
-    printf("[Residencial] (%06ld) Señal recibida. Terminando proceso...\n", obtener_timestamp_ms());
+/*     printf("[Residencial] (%06ld) Señal recibida. Terminando proceso...\n", obtener_timestamp_micros());
     if (debug) mostrar_contenido(informacion_hilos, numero_solicitudes, "Residencial");
-
+ */
 }
 
 
@@ -140,6 +137,8 @@ static void lanzar_hilos_solicitud(int dia_i, int hora_i) {
     }
     solicitudes[hora_i] += recuperados;
 
+    int seed = USER_INDEX_R;
+
     for (int i = recuperados; i < solicitudes[hora_i]; i++) {
         
         // Inicializamos su espacio
@@ -168,7 +167,7 @@ int main(void) {
         return EXIT_FAILURE;
     }
     
-    printf("[Residencial] (%06ld) Proceso iniciado (PID: %d)\n", obtener_timestamp_ms(), getpid());
+    printf("[Residencial] (%06ld) Proceso iniciado (PID: %d)\n", obtener_timestamp_micros(), getpid());
     
     inicializar_semaforos();
 
@@ -206,7 +205,7 @@ int main(void) {
             
             
             printf("[Residencial] (%06ld) Día %d, Hora %d: Generando solicitudes...\n", 
-            obtener_timestamp_ms(), dia_actual, hora_actual);
+            obtener_timestamp_micros(), dia_actual, hora_actual);
 
             // generar hilos
             lanzar_hilos_solicitud(dia_actual - 1, i);
@@ -234,13 +233,13 @@ int main(void) {
             /*int sem_val = 0;
             sem_getvalue(&shm->sem_nodos_libres, &sem_val);
 
-            printf("[Residencial] (%06ld) NODOS LIBRES: %d...\n", obtener_timestamp_ms(), sem_val);
+            printf("[Residencial] (%06ld) NODOS LIBRES: %d...\n", obtener_timestamp_micros(), sem_val);
             */
             // luego espero a que terminen
             for (int h = 0; h < solicitudes[i]; h++) {
-                //printf("[Residencial] (%06ld) ESPERANDO CIERRE %d...\n", obtener_timestamp_ms(), informacion_hilos[dia_actual - 1][i][h].usuario_id);
+                //printf("[Residencial] (%06ld) ESPERANDO CIERRE %d...\n", obtener_timestamp_micros(), informacion_hilos[dia_actual - 1][i][h].usuario_id);
                 //for (int h_sig = h; h_sig < solicitudes[i]; h_sig++) {
-                //    printf("[Residencial] (%06ld) RESTARIAN %d...\n", obtener_timestamp_ms(), informacion_hilos[dia_actual - 1][i][h_sig].usuario_id);
+                //    printf("[Residencial] (%06ld) RESTARIAN %d...\n", obtener_timestamp_micros(), informacion_hilos[dia_actual - 1][i][h_sig].usuario_id);
                 //}
                 pthread_join(hilos[i][h], NULL);
             }
@@ -253,7 +252,7 @@ int main(void) {
 
             sem_getvalue(&shm->sem_nodos_libres, &sem_val);
  */
-            //printf("[Residencial] (%06ld) NODOS LIBRES 2: %d...\n", obtener_timestamp_ms(), sem_val);
+            //printf("[Residencial] (%06ld) NODOS LIBRES 2: %d...\n", obtener_timestamp_micros(), sem_val);
 
             set_ha_terminado_la_hora_actual(false);
             // Avisar al líder que terminamos la hora
@@ -268,9 +267,13 @@ int main(void) {
 
         //sem_post(&shm->sem_residencial_listo);
     }
+
+    // Generar reporte final antes de terminar
+    mostrar_contenido(informacion_hilos, numero_solicitudes, "Residencial");
+    
     // Limpieza
     desconectar_shm(shm);
-    printf("[Residencial] (%06ld) Proceso terminado\n", obtener_timestamp_ms());
+    printf("[Residencial] (%06ld) Proceso terminado\n", obtener_timestamp_micros());
     
     return EXIT_SUCCESS;
 }
@@ -281,12 +284,11 @@ static void* hilo_solicitud(void *arg) {
     //unsigned int seed = (unsigned int)pthread_self() ^ (unsigned int)time(NULL); 
 
     //pthread_cleanup_push(manejador_de_finalizacion_temprana_dia_hora, info);
-
-    clock_gettime(CLOCK_MONOTONIC, &info->tiempo_espera_inicial);
+    unsigned int seed = info->hilo_id;
 
     // Generar número aleatorio para determinar la acción
-    double prob = (double)generar_random_range(0,1, &info->hilo_id);
-    double h = (double)generar_random_range(0,1, &info->hilo_id);
+    double prob = (double)generar_random_range(0,1, &seed);
+    double h = (double)generar_random_range(0,1, &seed);
 
     // No espera si está aplazada.
     if (info->edo_solicitud == APLAZADA) {
@@ -294,17 +296,20 @@ static void* hilo_solicitud(void *arg) {
             // las reservas suceden hasta casi media hora depues de iniciar el bloque horario
             //usleep(microseconds * h * 0.5);
             //pthread_testcancel();
+            clock_gettime(CLOCK_MONOTONIC, &info->tiempo_espera_inicial);
 
             esperar_asignacion(info, "Residencial");
         } else if (prob < 0.75) {
             // en cualquier momento se puede consultar presion
             //usleep(microseconds * h * 0.98);
             //pthread_testcancel();
+            clock_gettime(CLOCK_MONOTONIC, &info->tiempo_espera_inicial);
 
             consultar_presion(info, "Residencial");
         } else { // en los primeros 45 minutos se cancelan solicitudes
             //usleep(microseconds * h * 0.75);
             //pthread_testcancel();   
+            clock_gettime(CLOCK_MONOTONIC, &info->tiempo_espera_inicial);
 
             cancelar_solicitud(info, "Residencial");
         }
@@ -315,17 +320,20 @@ static void* hilo_solicitud(void *arg) {
             // las reservas suceden hasta casi media hora depues de iniciar el bloque horario
             usleep(microseconds * h * 0.5);
             //pthread_testcancel();
+            clock_gettime(CLOCK_MONOTONIC, &info->tiempo_espera_inicial);
     
             esperar_asignacion(info, "Residencial");
         } else if (prob < 0.75) {
             // en cualquier momento se puede consultar presion
             usleep(microseconds * h * 0.98);
             //pthread_testcancel();
-    
+            clock_gettime(CLOCK_MONOTONIC, &info->tiempo_espera_inicial);
+
             consultar_presion(info, "Residencial");
         } else { // en los primeros 45 minutos se cancelan solicitudes
             usleep(microseconds * h * 0.75);
             //pthread_testcancel();   
+            clock_gettime(CLOCK_MONOTONIC, &info->tiempo_espera_inicial);
     
             cancelar_solicitud(info, "Residencial");
         }

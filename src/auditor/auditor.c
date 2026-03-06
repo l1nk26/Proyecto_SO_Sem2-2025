@@ -150,9 +150,12 @@ void calcular_consumo_total_horario(void) {
     
     // Sumar consumo de todos los nodos
     for (int i = 0; i < NUM_NODOS; i++) {
-        // Aquí necesitarías acceder al consumo individual de cada nodo
-        // Por ahora, asumimos que cada nodo guarda su consumo en alguna estructura
-        // consumo_total_horario += shm->valvulas[i].consumo_horario;
+
+        // Lectura concurrente de consumo_horario
+        if (leer_nodo(shm, i) == 0) {
+            consumo_total_horario += shm->valvulas[i].consumo_horario;
+            terminar_lectura_nodo(shm, i);
+        }
     }
     
     // Convertir litros a metros cúbicos y acumular

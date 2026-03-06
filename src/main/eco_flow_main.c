@@ -136,9 +136,10 @@ int main(int argc, char** argv) {
     // Terminar simulación
     shm->simulacion_activa = false;
     printf("[Líder] Simulación completada. Enviando señales de terminación...\n");
-    
+
+
     // Enviar SIGTERM a todos los procesos hijos
-    for (int i = 0; i < 1; i++) { // Solo verificar el proceso residencial
+    for (int i = 0; i < 2; i++) { // Solo verificar el proceso residencial
         if (pids[i] > 0) {
             printf("[Líder] Enviando SIGTERM a PID %d\n", pids[i]);
             if (kill(pids[i], SIGTERM) < 0) {
@@ -149,7 +150,7 @@ int main(int argc, char** argv) {
     
     // Esperar a que todos los procesos terminen
     printf("[Líder] Esperando finalización de procesos...\n");
-    for (int i = 0; i < 1; i++) { // Solo verificar el proceso residencial
+    for (int i = 0; i < 2; i++) { // Solo verificar el proceso residencial
         if (pids[i] > 0) {
             int status;
             pid_t result = waitpid(pids[i], &status, 0);
@@ -225,7 +226,7 @@ static void inicializar_memoria(MemoriaCompartida *shm) {
     shm->amonestaciones_digitales = 0;
     shm->senales_criticas = 0;
     shm->senales_estandar = 0;
-    shm->tiempo_espera_total_ms = 0.0;
+    shm->tiempo_espera_total_micros = 0.0;
     shm->total_consultas_realizadas = 0;
     shm->total_nodos_encontrados_ocupados = 0;
     
@@ -357,7 +358,7 @@ static void mostrar_resultados(const MemoriaCompartida *shm) {
     printf("Nodos encontrados ocupados: %d\n", shm->total_nodos_encontrados_ocupados);
     
     if (shm->total_consultas_realizadas > 0) {
-        double eficiencia = shm->tiempo_espera_total_ms / shm->total_consultas_realizadas;
+        double eficiencia = shm->tiempo_espera_total_micros / shm->total_consultas_realizadas;
         printf("Tiempo promedio de espera: %.2f ms\n", eficiencia);
     }
     

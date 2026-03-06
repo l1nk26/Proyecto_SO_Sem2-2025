@@ -165,7 +165,7 @@ int main(void) {
 
     // Limpieza 
     desconectar_shm(shm);
-    printf("[Industrial] (%06ld) Proceso terminado\n", obtener_timestamp_micros());
+
     
     return EXIT_SUCCESS;
 }
@@ -191,8 +191,9 @@ static void manejador_senal(int sig) {
     (void)sig;
     proceso_terminado = 1;
 /*     printf("[Industrial] (%06ld) Señal recibida. Terminando proceso...\n", obtener_timestamp_micros());
+*/
     if (debug) mostrar_contenido(informacion_hilos, numero_solicitudes, "Industrial");
- */
+    
 }
 
 // [MIN_SOLICITUDES to MAX_SOLICITUDES] dependiendo de max_solicitudes

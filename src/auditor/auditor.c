@@ -29,7 +29,6 @@ void inicializar_auditor(void) {
     }
     
     printf("[Auditor] Inicializado (PID: %d)\n", getpid());
-    printf("[Auditor] Cola de mensajes '%s' creada\n", MQ_NAME);
 }
 
 void cleanup_auditor(void) {
@@ -95,7 +94,7 @@ void procesar_alerta_critica(const MensajeAlerta *msg) {
     pthread_mutex_unlock(&shm->mutex_metricas);
 }
 
-void calcular_consumo_total_horario(void) {
+void calcular_consumo_total_horario() {
     double consumo_total_horario = 0.0;
     
     // Sumar consumo de todos los nodos
@@ -127,8 +126,22 @@ int main(void) {
     // Inicializar auditor
     inicializar_auditor();
     
+    // Simular validaciones directas sin hilo
+    while (!auditor_terminado && shm->simulacion_activa) {
+        sleep(1);  // Esperar 1 segundo
+        
+        // Simular recepción de alerta directa
+        MensajeAlerta msg_simulada;
+        msg_simulada.nodo_id = rand() % NUM_NODOS;
+        msg_simulada.litros_consumidos = 400 + (rand() % 200);  // 400-600 litros
+        msg_simulada.tipo_proceso = rand() % 2;
+        msg_simulada.pid_proceso = getpid();
+        
+        procesar_alerta_critica(&msg_simulada);
+    }
+
     // Crear hilos
-    
+
     if (pthread_create(&hilo_calculo_tid, NULL, hilo_calculo_horario, NULL) != 0) {
         perror("[Auditor] pthread_create cálculo");
         cleanup_auditor();

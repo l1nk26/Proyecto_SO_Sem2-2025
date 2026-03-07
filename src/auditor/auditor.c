@@ -15,6 +15,9 @@ static pthread_t hilo_alertas_tid, hilo_calculo_tid;
 static volatile int auditor_terminado = 0;
 static MensajeAlerta alerta_actual;
 
+
+
+
 // Manejador de señales
 static void manejador_senal(int sig) {
     (void)sig;
@@ -29,6 +32,9 @@ void inicializar_auditor(void) {
         exit(EXIT_FAILURE);
     }
     
+    //semilla de random
+    srand(2);
+
     printf("[Auditor] Inicializado (PID: %d)\n", getpid());
 }
 
@@ -119,7 +125,7 @@ void* hilo_procesar_alertas(void *arg) {
 
 void procesar_alerta_critica(const MensajeAlerta *msg) {
     // Decidir aleatoriamente si es crítico (aprueba) o estándar (multa)
-    srand(2);
+    
     int es_critico = rand() % 2; 
     // 50% de probabilidad de que sea crítico (1)
     //int es_critico = (rand() % 100 < 50) ? 1 : 0; // 0=estándar, 1=crítico

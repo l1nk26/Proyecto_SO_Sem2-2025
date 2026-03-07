@@ -95,8 +95,8 @@ typedef struct {
     sem_t sem_auditor_terminado;
     sem_t sem_auditor_listas;
 
-    sem_t sem_hora_terminada_auditor;
-    sem_t sem_hora_terminada_industrial;
+    sem_t sem_hora_empezada_auditor;
+    sem_t sem_hora_empezada_industrial;
 
 } MemoriaCompartida;
 

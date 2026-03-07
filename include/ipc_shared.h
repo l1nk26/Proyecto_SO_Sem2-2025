@@ -87,6 +87,7 @@ typedef struct {
     
     // --- SINCRONIZACIÓN DE AUDITOR ---
     sem_t sem_auditor_terminado;
+    sem_t sem_auditor_listas;
 
 } MemoriaCompartida;
 

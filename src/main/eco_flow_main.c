@@ -137,9 +137,11 @@ int main(int argc, char** argv) {
             //sem_wait(&shm->sem_monitoreo);
 
             sem_post(&shm->sem_auditor);
+            sem_post(&shm->sem_auditor_listas);
             //sem_post(&shm->sem_monitoreo);
 
-            //sem_wait(&shm->sem_auditor_terminado);
+            sem_wait(&shm->sem_auditor_terminado);
+            
             //sem_wait(&shm->sem_monitoreo_terminado);
         }
         if (dia < DIAS_SIMULACION) {
@@ -285,6 +287,9 @@ static void inicializar_memoria(MemoriaCompartida *shm) {
     // Inicializar control de solicitudes
     shm->max_solicitudes_residencial = 0;
     
+    // Inicializar semáforo para auditor listas
+    sem_init(&shm->sem_auditor_listas, 1, 0);
+
     // Inicializar microseconds y su semáforo
     shm->microseconds = 0;
     sem_init(&shm->microseconds_sem, 1, 1);

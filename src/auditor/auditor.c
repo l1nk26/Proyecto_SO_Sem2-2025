@@ -11,8 +11,9 @@
 
 // Variables globales del auditor
 static MemoriaCompartida *shm = NULL;
-static pthread_t hilo_validacion_tid, hilo_calculo_tid;
+static pthread_t hilo_alertas_tid, hilo_calculo_tid;
 static volatile int auditor_terminado = 0;
+static MensajeAlerta alerta_actual;
 
 // Manejador de señales
 static void manejador_senal(int sig) {
@@ -35,8 +36,8 @@ void cleanup_auditor(void) {
     printf("[Auditor] Limpiando recursos...\n");
     
     // Esperar a que terminen los hilos
-    if (hilo_validacion_tid) {
-        pthread_join(hilo_validacion_tid, NULL);
+    if (hilo_alertas_tid) {
+        pthread_join(hilo_alertas_tid, NULL);
     }
     if (hilo_calculo_tid) {
         pthread_join(hilo_calculo_tid, NULL);
@@ -69,6 +70,28 @@ void* hilo_calculo_horario(void *arg) {
     }
     
     printf("[Auditor-Cálculo] Hilo terminado\n");
+    return NULL;
+}
+
+void* hilo_procesar_alertas(void *arg) {
+    (void)arg;
+    
+    printf("[Auditor-Alertas] Hilo iniciado, esperando alertas...\n");
+    
+    while (!auditor_terminado && shm->simulacion_activa) {
+        // Esperar semáforo de alertas
+        sem_wait(&shm->sem_auditor_listas);
+        
+        if (auditor_terminado || !shm->simulacion_activa) break;
+        
+        // Procesar alerta actual
+        procesar_alerta_critica(&alerta_actual);
+        
+        printf("[Auditor-Alertas] Alerta procesada: Nodo %d, %.2f litros\n", 
+               alerta_actual.nodo_id, alerta_actual.litros_consumidos);
+    }
+    
+    printf("[Auditor-Alertas] Hilo terminado\n");
     return NULL;
 }
 
@@ -126,10 +149,12 @@ int main(void) {
     // Inicializar auditor
     inicializar_auditor();
     
-    // Simular validaciones directas sin hilo
+    /* // Simular validaciones directas sin hilo
     while (!auditor_terminado && shm->simulacion_activa) {
         sleep(1);  // Esperar 1 segundo
         
+        //sem_wait(&shm->sem_auditor_terminado);
+
         // Simular recepción de alerta directa
         MensajeAlerta msg_simulada;
         msg_simulada.nodo_id = rand() % NUM_NODOS;
@@ -138,10 +163,15 @@ int main(void) {
         msg_simulada.pid_proceso = getpid();
         
         procesar_alerta_critica(&msg_simulada);
-    }
+    } */
 
     // Crear hilos
-
+    if (pthread_create(&hilo_alertas_tid, NULL, hilo_procesar_alertas, NULL) != 0) {
+        perror("[Auditor] pthread_create alertas");
+        cleanup_auditor();
+        return EXIT_FAILURE;
+    }
+ 
     if (pthread_create(&hilo_calculo_tid, NULL, hilo_calculo_horario, NULL) != 0) {
         perror("[Auditor] pthread_create cálculo");
         cleanup_auditor();

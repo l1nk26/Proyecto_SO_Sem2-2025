@@ -18,6 +18,7 @@ void inicializar_auditor(void);
 void cleanup_auditor(void);
 
 // Hilos del auditor
+void* hilo_procesar_alertas(void *arg);
 void* hilo_calculo_horario(void *arg);
 
 

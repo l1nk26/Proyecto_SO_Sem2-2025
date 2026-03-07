@@ -120,9 +120,9 @@ void* hilo_procesar_alertas(void *arg) {
 void procesar_alerta_critica(const MensajeAlerta *msg) {
     // Decidir aleatoriamente si es crítico (aprueba) o estándar (multa)
     srand(2);
-    //int es_critico = rand() % 2; 
+    int es_critico = rand() % 2; 
     // 50% de probabilidad de que sea crítico (1)
-    int es_critico = (rand() % 100 < 50) ? 1 : 0; // 0=estándar, 1=crítico
+    //int es_critico = (rand() % 100 < 50) ? 1 : 0; // 0=estándar, 1=crítico
 
     // Proteger actualización de métricas con mutex
     pthread_mutex_lock(&shm->mutex_metricas);
@@ -154,12 +154,9 @@ void calcular_consumo_total_horario() {
         }
     }
     
-    // Convertir litros a metros cúbicos y acumular
-    double metros_cubicos = consumo_total_horario / 1000.0;
-    
     // Proteger actualización con mutex
     pthread_mutex_lock(&shm->mutex_metricas);
-    shm->total_metros_cubicos += metros_cubicos;
+    shm->total_metros_cubicos += consumo_total_horario;
     pthread_mutex_unlock(&shm->mutex_metricas);
 } 
 

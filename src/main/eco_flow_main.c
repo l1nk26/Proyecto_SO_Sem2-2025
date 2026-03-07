@@ -68,7 +68,7 @@ int main(int argc, char** argv) {
     
     pids[0] = lanzar_proceso("residencial");
     pids[1] = lanzar_proceso("industrial");
-    // pids[2] = lanzar_proceso("auditor");
+    pids[2] = lanzar_proceso("auditor");
     pids[3] = 0;
     // pids[3] = lanzar_proceso("monitor");
 

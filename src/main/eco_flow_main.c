@@ -112,7 +112,7 @@ int main(int argc, char** argv) {
     //printf("[Orquestador] %d procesos lanzados exitosamente\n", procesos_lanzados);
     
     // Bucle principal de simulación
-    printf("[Orquestador] Iniciando simulación de %d día(s) y %d hora(s)...\n", dias_a_simular, horas_a_simular);
+    printf("[Orquestador] Iniciando simulación de %d día(s) con %d hora(s)...\n", dias_a_simular, horas_a_simular);
     sleep(2);
     sem_post(&shm->activador_industrial);
     sem_post(&shm->activador_residencial);
@@ -169,7 +169,7 @@ int main(int argc, char** argv) {
         }
 
     }
-    
+
     // Terminar simulación
     shm->simulacion_activa = false;
     printf("[Orquestador] Simulación completada. Enviando señales de terminación...\n");
@@ -323,6 +323,9 @@ static void inicializar_memoria(MemoriaCompartida *shm) {
     // Inicializar control de consumo crítico
     shm->nodo_consumo_critico_id = -1;
     pthread_mutex_init(&shm->mutex_consumo_critico, NULL);
+
+    sem_init(&shm->sem_hora_empezada_auditor, 1, 0);
+    sem_init(&shm->sem_hora_empezada_industrial, 1, 0);
 }
 
 static void destruir_memoria_compartida(MemoriaCompartida *shm, int shm_fd) {

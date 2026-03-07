@@ -4,13 +4,14 @@
 #include <pthread.h>
 #include "ipc_shared.h"
 
+#define LIMITE_CONSUMO_CRITICO 500.0
 
 // Estructura del mensaje para alertas de consumo
 typedef struct {
     int nodo_id;
     double litros_consumidos;
-    int tipo_proceso;
-    pid_t pid_proceso;
+    int usuario_id;
+    bool es_critico;
 } MensajeAlerta;
 
 // Funciones principales

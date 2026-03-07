@@ -1,12 +1,11 @@
 build/
 logs/
 ordenar_logs.py
-eco_flow
-industrial
-residencial
-auditor
-monitor
+/eco_flow
+/industrial
+/residencial
+/auditor
+/monitor
 script.py
 #monitor/
 *.txt
-auditor

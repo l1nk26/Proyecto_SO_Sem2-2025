@@ -21,5 +21,8 @@ void cleanup_auditor(void);
 void* hilo_procesar_alertas(void *arg);
 void* hilo_calculo_horario(void *arg);
 
+// Funciones auxiliares
+void procesar_alerta_critica(const MensajeAlerta *msg);
+void calcular_consumo_total_horario();
 
 #endif // AUDITOR_H

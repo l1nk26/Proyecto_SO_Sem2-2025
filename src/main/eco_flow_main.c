@@ -28,14 +28,33 @@ static pid_t pids[4] = {0, 0, 0, 0};
 int main(int argc, char** argv) {
 
     int microseconds = 1000000;
-    if (argc > 2) {
-        if (strcmp(argv[1], "--microseconds") == 0 || strcmp(argv[1], "-m") == 0  ) {
-            microseconds = atoi(argv[2]);
-        }
-        if (microseconds < 10000) {
-            printf("[Orquestador] El valor de microseconds debe ser mayor o igual a 10000\n");
+    int dias_a_simular = DIAS_SIMULACION;
+    int horas_a_simular = HORA_FIN - HORA_INICIO;
+    
+    // Parsear argumentos de línea de comandos
+    for (int i = 1; i < argc; i++) {
+        if (strcmp(argv[i], "--microseconds") == 0 || strcmp(argv[i], "-m") == 0) {
+            if (i + 1 < argc) {
+                microseconds = atoi(argv[++i]);
+            }
+        } else if (strcmp(argv[i], "-d") == 0) {
+            dias_a_simular = 1;
+            horas_a_simular = HORA_FIN - HORA_INICIO;
+        } else if (strcmp(argv[i], "-h") == 0) {
+            dias_a_simular = 1;
+            horas_a_simular = 1;
+        } else {
+            printf("[Orquestador] Uso: %s [--microseconds|-m valor] [-d] [-h]\n", argv[0]);
+            printf("  -d : Simular un día completo (12 horas)\n");
+            printf("  -h : Simular una hora específica\n");
+            printf("  --microseconds/-m : Tiempo en microsegundos (mínimo 10000)\n");
             return EXIT_FAILURE;
         }
+    }
+    
+    if (microseconds < 10000) {
+        printf("[Orquestador] El valor de microseconds debe ser mayor o igual a 10000\n");
+        return EXIT_FAILURE;
     }
     
     MemoriaCompartida *shm = NULL;
@@ -92,19 +111,19 @@ int main(int argc, char** argv) {
     
     //printf("[Orquestador] %d procesos lanzados exitosamente\n", procesos_lanzados);
     
-    // Bucle principal de simulación (30 "días")
-    printf("[Orquestador] Iniciando simulación de %d días...\n", DIAS_SIMULACION);
+    // Bucle principal de simulación
+    printf("[Orquestador] Iniciando simulación de %d día(s) y %d hora(s)...\n", dias_a_simular, horas_a_simular);
     sleep(2);
     sem_post(&shm->activador_industrial);
     sem_post(&shm->activador_residencial);
 
-    for (int dia = 1; dia <= DIAS_SIMULACION && !simulacion_terminada; dia++) {
+    for (int dia = 1; dia <= dias_a_simular && !simulacion_terminada; dia++) {
     
         sem_wait(&shm->sem_residencial_listo); // espera antes de iniciar el dia.
         sem_wait(&shm->sem_industrial_listo);
         shm->dia_actual = dia;
 
-        for (int hora = HORA_INICIO; hora < HORA_FIN && !simulacion_terminada; hora++) {
+        for (int hora = HORA_INICIO; hora < HORA_INICIO + horas_a_simular && !simulacion_terminada; hora++) {
             shm->hora_actual = hora;
             
             // Resetear consumo horario de todos los nodos al inicio de cada hora
@@ -144,7 +163,7 @@ int main(int argc, char** argv) {
             
             //sem_wait(&shm->sem_monitoreo_terminado);
         }
-        if (dia < DIAS_SIMULACION) {
+        if (dia < dias_a_simular) {
             sem_post(&shm->sem_nodo_residencial_dia_fin);
             sem_post(&shm->sem_nodo_industrial_dia_fin);
         }

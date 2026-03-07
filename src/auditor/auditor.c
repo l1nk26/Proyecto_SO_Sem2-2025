@@ -81,6 +81,8 @@ void* hilo_calculo_horario(void *arg) {
 
 void* hilo_procesar_alertas(void *arg) {
     (void)arg;
+
+    
     
     printf("[Auditor-Alertas] Hilo iniciado, esperando alertas...\n");
     
@@ -93,22 +95,24 @@ void* hilo_procesar_alertas(void *arg) {
         // buscamos cual nodo consumio mas de 500 litros
 
         // Voy A SUPONER QUE SOLO VA HABER UNO A LA VEZ QUE ESTA SOLICITANDO EL CONSUMO DE 500 litros
-        for (int i = 0; i < NUM_NODOS; i++) {
+        int nodo_id_critico;
+        pthread_mutex_lock(&shm->mutex_consumo_critico);
+        nodo_id_critico = shm->nodo_consumo_critico_id;
+        pthread_mutex_unlock(&shm->mutex_consumo_critico); 
+        // Lectura concurrente de consumo_horario
 
-            // Lectura concurrente de consumo_horario
-            if (leer_nodo(shm, i) == 0) {
-                if((shm->valvulas[i].consumo_horario)*1000.0 > LIMITE_CONSUMO_CRITICO){
-                    alerta_actual.nodo_id = i;
-                    alerta_actual.litros_consumidos = (shm->valvulas[i].consumo_horario)*1000.0;
-                    alerta_actual.usuario_id = shm->valvulas[i].usuario_id;
-                    alerta_actual.es_critico = true; 
-                    terminar_lectura_nodo(shm, i);
-                    break;
-                }
-                terminar_lectura_nodo(shm, i);
-            }
+        if (leer_nodo(shm, nodo_id_critico) == 0) {
+                
+            alerta_actual.nodo_id = nodo_id_critico;
+            alerta_actual.litros_consumidos = (shm->valvulas[nodo_id_critico].consumo_horario)*1000.0;
+            alerta_actual.usuario_id = shm->valvulas[nodo_id_critico].usuario_id;
+            alerta_actual.es_critico = true; 
+            terminar_lectura_nodo(shm, nodo_id_critico);
+            break;
+                
+            terminar_lectura_nodo(shm, nodo_id_critico);
         }
-
+        
         // Procesar alerta actual
         if(alerta_actual.es_critico)
             procesar_alerta_critica(&alerta_actual);

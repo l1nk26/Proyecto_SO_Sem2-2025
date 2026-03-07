@@ -319,6 +319,10 @@ static void inicializar_memoria(MemoriaCompartida *shm) {
     pthread_rwlockattr_setpshared(&rwlock_attr, PTHREAD_PROCESS_SHARED);
     pthread_rwlock_init(&shm->mutex_nodos, &rwlock_attr);
     pthread_rwlockattr_destroy(&rwlock_attr);
+
+    // Inicializar control de consumo crítico
+    shm->nodo_consumo_critico_id = -1;
+    pthread_mutex_init(&shm->mutex_consumo_critico, NULL);
 }
 
 static void destruir_memoria_compartida(MemoriaCompartida *shm, int shm_fd) {

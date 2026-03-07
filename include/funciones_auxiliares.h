@@ -532,6 +532,11 @@ static void consumir_agua(InfoHilo *info, const char *nombre_proceso) {
             
             // Mostrar estado según nivel de consumo
             if ((shm->valvulas[info->id_nodo].consumo_horario) * 1000.0 > LIMITE_CONSUMO_CRITICO) {
+                
+                pthread_mutex_lock(&shm->mutex_consumo_critico);
+                shm->nodo_consumo_critico_id = info->id_nodo;
+                pthread_mutex_unlock(&shm->mutex_consumo_critico);
+                
                 mostrar_estado_detalles_hilo(info, "Consumo crítico", nombre_proceso);
 
                 sem_post(&shm->sem_auditor_listas);

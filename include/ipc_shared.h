@@ -48,6 +48,12 @@ typedef struct {
     int minuto_actual;
     bool simulacion_activa;        // Pasa a false cuando termina el mes
 
+    // id del nodo que tiene el consumo crítico
+    int nodo_consumo_critico_id; 
+    // para proteger el acceso a nodo_consumo_critico_id
+    pthread_mutex_t mutex_consumo_critico;
+
+
     // --- SINCRONIZACIÓN DE MÉTRICAS ---
     // Mutex para evitar race conditions al sumar metros cúbicos o amonestaciones
     pthread_mutex_t mutex_metricas; 

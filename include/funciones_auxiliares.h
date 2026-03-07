@@ -531,11 +531,15 @@ static void consumir_agua(InfoHilo *info, const char *nombre_proceso) {
             info->m3_consumidos += consumo / 1000.0;
             
             // Mostrar estado según nivel de consumo
-            if (consumo > LIMITE_CONSUMO_CRITICO) {
+            if ((shm->valvulas[info->id_nodo].consumo_horario) * 1000.0 > LIMITE_CONSUMO_CRITICO) {
                 mostrar_estado_detalles_hilo(info, "Consumo crítico", nombre_proceso);
+
+                sem_post(&shm->sem_auditor_listas);
             } else {
                 mostrar_estado_detalles_hilo(info, "Consumo estándar", nombre_proceso);
             }
+            
+            
         //} else {
         //    printf("[%s] Error: No se pudo reservar nodo %d para consumo\n", 
         //           nombre_proceso, info->id_nodo);

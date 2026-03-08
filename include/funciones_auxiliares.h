@@ -282,12 +282,14 @@ int64_t calcular_tiempo_transcurrido_micros_int(const struct timespec *inicio, c
 
 // Genera un número aleatorio en el rango [min, max]
 int generar_random_range_int(int min, int max, unsigned int *seed) {
-    return min + (rand_r(seed) % (max - min + 1));
+    *seed = (*seed * 1103515245 + 12345) & 0x7fffffff;
+    return min + (*seed / 0x7fffffff) * (max - min);    
 }
 
 // Genera un número aleatorio en el rango [min, max]
 double generar_random_range(double min, double max, unsigned int *seed) {
-    return min + (rand_r(seed) / (double)(RAND_MAX)) * (max - min);
+    *seed = (*seed * 1103515245 + 12345) & 0x7fffffff;
+    return min + (*seed / (double)0x7fffffff) * (max - min);
 }
 
 void mostrar_estado_detalles_hilo(InfoHilo *info, const char *mensaje, const char *proceso) {
@@ -589,7 +591,8 @@ static void consumir_agua(InfoHilo *info, const char *nombre_proceso) {
 // v1
 // Generar consumo entre 50 y 750 litros
 static double generar_consumo_litros(InfoHilo *info, const char *nombre_proceso) {
-    unsigned int seed = (unsigned int)(info->hilo_id + 1) * (unsigned int)info->usuario_id;
+    unsigned int seed = (unsigned int)(info->hilo_id + 1) ^ (unsigned int)info->usuario_id ^ 
+                       (unsigned int)time(NULL) ^ (unsigned int)(info->tiempo_espera_inicial.tv_nsec);
     if (strcmp(nombre_proceso, "Residencial") == 0) {
         return generar_random_range(MIN_LITROS_R, MAX_LITROS_R, &seed);
     }

@@ -112,7 +112,7 @@ int main(void) {
             actualizar_nro_solicitudes(dia_actual - 1, i);
             
             // Avisar al líder que estamos listos para la hora
-            sem_post(&shm->sem_nodo_industrial_listo_hora);
+            sem_wait(&shm->sem_hora_empezada_industrial);
             
             
             printf("[Industrial] (%06ld) Día %d, Hora %d: Generando solicitudes...\n", 
@@ -284,20 +284,20 @@ static void* hilo_solicitud(void *arg) {
             //pthread_testcancel();
             clock_gettime(CLOCK_MONOTONIC, &info->tiempo_espera_inicial);
 
-            esperar_asignacion(info, "Residencial");
+            esperar_asignacion(info, "Industrial");
         } else if (info->operacion == CONSULTA_PRESION) {
             // en cualquier momento se puede consultar presion
             //usleep(microseconds * h * 0.98);
             //pthread_testcancel();
             clock_gettime(CLOCK_MONOTONIC, &info->tiempo_espera_inicial);
 
-            consultar_presion(info, "Residencial");
+            consultar_presion(info, "Industrial");
         } else { // en los primeros 45 minutos se cancelan solicitudes
             //usleep(microseconds * h * 0.75);
             //pthread_testcancel();   
             clock_gettime(CLOCK_MONOTONIC, &info->tiempo_espera_inicial);
 
-            cancelar_solicitud(info, "Residencial");
+            cancelar_solicitud(info, "Industrial");
         }
     }
     else {
@@ -308,7 +308,7 @@ static void* hilo_solicitud(void *arg) {
             //pthread_testcancel();
             clock_gettime(CLOCK_MONOTONIC, &info->tiempo_espera_inicial);
     
-            esperar_asignacion(info, "Residencial");
+            esperar_asignacion(info, "Industrial");
         } else if (prob < 0.75) {
             // en cualquier momento se puede consultar presion
             
@@ -316,13 +316,13 @@ static void* hilo_solicitud(void *arg) {
         
             usleep(microseconds * h * 0.98);
             clock_gettime(CLOCK_MONOTONIC, &info->tiempo_espera_inicial);
-            consultar_presion(info, "Residencial");
+            consultar_presion(info, "Industrial");
         } else { // en los primeros 45 minutos se cancelan solicitudes
             usleep(microseconds * h * 0.75);
             //pthread_testcancel();   
             clock_gettime(CLOCK_MONOTONIC, &info->tiempo_espera_inicial);
     
-            cancelar_solicitud(info, "Residencial");
+            cancelar_solicitud(info, "Industrial");
         }
     }
     

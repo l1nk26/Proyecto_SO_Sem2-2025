@@ -10,3 +10,4 @@ script.py
 #monitor/
 *.txt
 auditor
+src/monitoreo/monitor.c

@@ -84,6 +84,10 @@ int reservar_nodo(MemoriaCompartida *shm, int id_nodo, int usuario_id) {
     
     // Usar wrlock global para marcar el nodo como ocupado
     pthread_rwlock_wrlock(&shm->valvulas[id_nodo].rwlock_nodo);
+    if (shm->valvulas[id_nodo].ocupado == true) {
+        pthread_rwlock_unlock(&shm->valvulas[id_nodo].rwlock_nodo);
+        return -1;
+    }
     shm->valvulas[id_nodo].ocupado = true;
     shm->valvulas[id_nodo].usuario_id = usuario_id;
     pthread_rwlock_unlock(&shm->valvulas[id_nodo].rwlock_nodo);
@@ -92,16 +96,40 @@ int reservar_nodo(MemoriaCompartida *shm, int id_nodo, int usuario_id) {
 }
 
 // Liberar nodo reservado
-void liberar_nodo(MemoriaCompartida *shm, int id_nodo) {
-    if (shm == NULL || id_nodo < 0 || id_nodo >= NUM_NODOS) return;
+int liberar_nodo(MemoriaCompartida *shm, int id_nodo, int usuario_id) {
+    if (shm == NULL || id_nodo < 0 || id_nodo >= NUM_NODOS) return -1;
     
 
     pthread_rwlock_wrlock(&shm->valvulas[id_nodo].rwlock_nodo);
+    if (shm->valvulas[id_nodo].ocupado == false || shm->valvulas[id_nodo].usuario_id != usuario_id) {
+        pthread_rwlock_unlock(&shm->valvulas[id_nodo].rwlock_nodo);
+        return -1;
+    }
     shm->valvulas[id_nodo].ocupado = false;
     shm->valvulas[id_nodo].usuario_id = -1;
     pthread_rwlock_unlock(&shm->valvulas[id_nodo].rwlock_nodo);
     
     sem_post(&shm->sem_nodos_libres);
+    
+    return 0;
+}
+
+// Liberar nodo reservado sin verificar usuario
+int liberar_nodo_sin_usuario(MemoriaCompartida *shm, int id_nodo) {
+    if (shm == NULL || id_nodo < 0 || id_nodo >= NUM_NODOS) return -1;
+    
+    pthread_rwlock_wrlock(&shm->valvulas[id_nodo].rwlock_nodo);
+    if (shm->valvulas[id_nodo].ocupado == false) {
+        pthread_rwlock_unlock(&shm->valvulas[id_nodo].rwlock_nodo);
+        return -1;
+    }
+    shm->valvulas[id_nodo].ocupado = false;
+    shm->valvulas[id_nodo].usuario_id = -1;
+    pthread_rwlock_unlock(&shm->valvulas[id_nodo].rwlock_nodo);
+    
+    sem_post(&shm->sem_nodos_libres);
+    
+    return 0;
 }
 
 // Adquirir lock de lectura global para acceder a nodos

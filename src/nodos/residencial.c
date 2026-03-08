@@ -224,13 +224,11 @@ int main(void) {
 
             sem_post(&shm->sem_sync_industrial);
 
+            pthread_rwlock_wrlock(&shm->mutex_nodos);
             for (int nodo = 0; nodo < NUM_NODOS; nodo++){
-                pthread_rwlock_wrlock(&shm->mutex_nodos);
-                if (shm->valvulas[nodo].ocupado) {
-                    liberar_nodo(shm, nodo);
-                }
-                pthread_rwlock_unlock(&shm->mutex_nodos);
+                liberar_nodo_sin_usuario(shm, nodo);
             }
+            pthread_rwlock_unlock(&shm->mutex_nodos);
             
             
             //pthread_rwlock_unlock(&shm->mutex_nodos);

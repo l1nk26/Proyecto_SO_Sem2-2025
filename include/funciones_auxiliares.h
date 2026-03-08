@@ -463,7 +463,7 @@ static void generar_amonestacion(InfoHilo *info) {
 
 
 static void pagar_tarifa_excedente(InfoHilo *info, int nodo_id) {
-    liberar_nodo(shm, nodo_id);
+    liberar_nodo(shm, nodo_id, info->usuario_id);
 }
 
 

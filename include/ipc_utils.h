@@ -23,7 +23,8 @@ void esperar_hora_monitoreo(MemoriaCompartida *shm);
 
 // Helpers para locks de nodos (lectura/escritura)
 int reservar_nodo(MemoriaCompartida *shm, int id_nodo, int usuario_id);      // lock write
-void liberar_nodo(MemoriaCompartida *shm, int id_nodo);       // unlock write
+int liberar_nodo(MemoriaCompartida *shm, int id_nodo, int usuario_id);       // unlock write
+int liberar_nodo_sin_usuario(MemoriaCompartida *shm, int id_nodo);           // unlock write sin verificar usuario
 int leer_nodo(MemoriaCompartida *shm, int id_nodo);          // lock read
 void terminar_lectura_nodo(MemoriaCompartida *shm, int id_nodo); // unlock read
 

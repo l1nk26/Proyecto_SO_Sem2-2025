@@ -131,10 +131,8 @@ int main(int argc, char** argv) {
                 shm->valvulas[nodo].consumo_horario = 0.0;
             }
             
-            // Esperar a que los nodos estén listos para la hora
-            sem_wait(&shm->sem_nodo_residencial_listo_hora);
-            sem_wait(&shm->sem_nodo_industrial_listo_hora);
-            
+            sem_post(&shm->sem_hora_empezada_residencial);
+            sem_post(&shm->sem_hora_empezada_industrial);
 
 
             for (int i = 0; i < 60; i++) {
@@ -142,6 +140,7 @@ int main(int argc, char** argv) {
                 shm->minuto_actual = i;
             }
 
+            // no se si estan haciendo algo pero los dejo ahi por si acaso
             sem_post(&shm->sem_nodo_residencial);
             sem_post(&shm->sem_nodo_industrial);
             
@@ -324,7 +323,7 @@ static void inicializar_memoria(MemoriaCompartida *shm) {
     shm->nodo_consumo_critico_id = -1;
     pthread_mutex_init(&shm->mutex_consumo_critico, NULL);
 
-    sem_init(&shm->sem_hora_empezada_auditor, 1, 0);
+    sem_init(&shm->sem_hora_empezada_residencial, 1, 0);
     sem_init(&shm->sem_hora_empezada_industrial, 1, 0);
 }
 

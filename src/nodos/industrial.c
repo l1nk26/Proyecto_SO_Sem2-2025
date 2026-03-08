@@ -112,7 +112,7 @@ int main(void) {
             actualizar_nro_solicitudes(dia_actual - 1, i);
             
             // Avisar al líder que estamos listos para la hora
-            sem_post(&shm->sem_nodo_industrial_listo_hora);
+            sem_wait(&shm->sem_hora_empezada_industrial);
             
             
             printf("[Industrial] (%06ld) Día %d, Hora %d: Generando solicitudes...\n", 

@@ -145,6 +145,8 @@ static void lanzar_hilos_solicitud(int dia_i, int hora_i) {
     int recuperados = 0;
     if (numero_solicitudes_aplazadas > 0) {
         recuperar_solicitudes_aplazadas(&recuperados, dia_i, hora_i - 1);
+        printf("[Residencial] (%06ld) Hora %d: Recuperadas %d solicitudes aplazadas\n", 
+               obtener_timestamp_micros(), hora_i, recuperados);
     }
 
     for (int i = 0; i < recuperados; i++) {

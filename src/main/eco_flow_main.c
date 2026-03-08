@@ -153,7 +153,13 @@ int main(int argc, char** argv) {
 
             // Esperar a que los nodos terminen la hora
             sem_wait(&shm->sem_nodo_residencial_listo_hora);
+            if (simulacion_terminada) {
+                break;
+            }
             sem_wait(&shm->sem_nodo_industrial_listo_hora);
+            if (simulacion_terminada) {
+                break;
+            }
             //sem_wait(&shm->sem_monitoreo);
 
             sem_post(&shm->sem_auditor);

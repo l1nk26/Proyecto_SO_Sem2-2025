@@ -107,12 +107,12 @@ static void set_ha_terminado_la_hora_actual(bool valor);
 void manejador_de_finalizacion_temprana_dia_hora(void *arg);
 void manejador_de_finalizacion_temprana(void *arg);
 static void manejador_de_finalizacion_exitosa(void *arg);
-static int obtener_nodo_disponible(InfoHilo *info);
+static int obtener_nodo_disponible();
 
 static void consultar_presion(InfoHilo *info, const char *nombre_proceso);
 
 static void cancelar_solicitud(InfoHilo *info, const char *nombre_proceso);
-static void generar_amonestacion(InfoHilo *info);
+static void generar_amonestacion();
 static bool pagar_tarifa_excedente(InfoHilo *info, int nodo_id);
 
 static void esperar_asignacion(InfoHilo *info, const char *nombre_proceso);
@@ -293,7 +293,7 @@ double generar_random_range(double min, double max, unsigned int *seed) {
 }
 
 void mostrar_estado_detalles_hilo(InfoHilo *info, const char *mensaje, const char *proceso) {
-    printf("[%s] (%010ld) %s Hilo %d. Estado: operacion=%S, estado de solicitud=%s\n", 
+    printf("[%s] (%010ld) %s Hilo %d. Estado: operacion=%s, estado de solicitud=%s\n", 
            proceso, obtener_timestamp_micros(), mensaje, info->usuario_id, nombre_operacion[info->operacion], nombre_estado[info->edo_solicitud]);
 }
 
@@ -379,7 +379,7 @@ static void manejador_de_finalizacion_exitosa(void *arg) {
 
 // v1
 // retorna el nodo reservado o -1
-static int obtener_nodo_disponible(InfoHilo *info) {
+static int obtener_nodo_disponible() {
     
     for (int i = 0; i < NUM_NODOS; i++) {
         pthread_rwlock_rdlock(&shm->valvulas[i].rwlock_nodo);
@@ -451,7 +451,7 @@ static void cancelar_solicitud(InfoHilo *info, const char *nombre_proceso) {
     int nodo = verificar_reserva(info);
     
     if (nodo < 0) {
-        generar_amonestacion(info);
+        generar_amonestacion();
         mostrar_estado_detalles_hilo(info, "Cancelación rechazada - Sin reserva", nombre_proceso);
     }
     else {
@@ -468,7 +468,7 @@ static void cancelar_solicitud(InfoHilo *info, const char *nombre_proceso) {
 
 
 // Generar amonestacion
-static void generar_amonestacion(InfoHilo *info) {
+static void generar_amonestacion() {
     lock_metricas(shm);
     shm->amonestaciones_digitales++;
     unlock_metricas(shm);
@@ -497,7 +497,7 @@ static void esperar_asignacion(InfoHilo *info, const char *nombre_proceso) {
     sem_wait(&shm->sem_nodos_libres);
 
     pthread_rwlock_wrlock(&shm->mutex_nodos);
-    int nodo = obtener_nodo_disponible(info);
+    int nodo = obtener_nodo_disponible();
 
     // Teoricamente no deberia de ser -1, pero por si acaso
     if (nodo == -1) {
@@ -548,8 +548,6 @@ static void esperar_asignacion(InfoHilo *info, const char *nombre_proceso) {
 
 // Consumir
 static void consumir_agua(InfoHilo *info, const char *nombre_proceso) {
-
-    unsigned int seed = (unsigned int)(info->hilo_id + 1) * (unsigned int)info->usuario_id;
 
     double consumo = generar_consumo_litros(info, nombre_proceso);
     // Actualizar estado del nodo específico en lugar de métricas globales
@@ -630,8 +628,16 @@ void mostrar_contenido(InfoHilo info[DIAS_SIMULACION][HORAS_DIA][MAX_SOLICITUDES
     long long total_solicitudes = 0;
     int64_t suma_tiempo_espera = 0;
     double suma_m3 = 0.0;
-    int conteo_operacion[4] = {0};        // Índices: 0..3 (NINGUNA..CONSULTA_PRESION)
-    int conteo_estado[5] = {0};            // Índices: 0..4 (PENDIENTE..DESCONOCIDO)
+    int conteo_operacion[nombre_operacion_count];
+    int conteo_estado[nombre_estado_count];
+
+    // inicializar
+    for (int i = 0; i < nombre_estado_count; i++) {
+        conteo_estado[i] = 0;
+    }
+    for (int i = 0; i < nombre_operacion_count; i++) {
+        conteo_operacion[i] = 0;
+    }
 
     fprintf(log, "=== REPORTE DE SIMULACIÓN ===\n\n");
     fprintf(log, "Formato: [Día Hora] Usuario Hilo  TiempoEspera(s)  m3  Operación  Estado\n\n");

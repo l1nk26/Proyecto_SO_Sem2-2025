@@ -81,6 +81,11 @@ typedef struct {
     // --- CONTROL DE SOLICITUDES ---
     int max_solicitudes_residencial; // Máximo de solicitudes residenciales por día
 
+    // --- CONTROL DE SOLICITUDES FORZADAS ---
+    bool usar_solicitudes_forzadas;        // true si se usa control -s
+    int solicitudes_forzadas_residencial;  // número exacto de solicitudes por hora
+    int solicitudes_forzadas_industrial;   // número exacto de solicitudes por hora
+
     int microseconds;
     sem_t microseconds_sem;
 

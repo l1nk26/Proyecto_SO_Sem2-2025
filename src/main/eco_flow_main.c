@@ -30,6 +30,7 @@ int main(int argc, char** argv) {
     int microseconds = 1000000;
     int dias_a_simular = DIAS_SIMULACION;
     int horas_a_simular = HORA_FIN - HORA_INICIO;
+    int solicitudes_forzadas = 0;
     
     // Parsear argumentos de línea de comandos
     for (int i = 1; i < argc; i++) {
@@ -43,11 +44,23 @@ int main(int argc, char** argv) {
         } else if (strcmp(argv[i], "-h") == 0) {
             dias_a_simular = 1;
             horas_a_simular = 1;
+        } else if (strcmp(argv[i], "-s") == 0) {
+            if (i + 1 < argc) {
+                solicitudes_forzadas = atoi(argv[++i]);
+                if (solicitudes_forzadas < 1 || solicitudes_forzadas > 500) {
+                    printf("[Orquestador] El número de solicitudes debe estar entre 1 y 500\n");
+                    return EXIT_FAILURE;
+                }
+            } else {
+                printf("[Orquestador] Error: -s requiere un número de solicitudes\n");
+                return EXIT_FAILURE;
+            }
         } else {
-            printf("[Orquestador] Uso: %s [--microseconds|-m valor] [-d] [-h]\n", argv[0]);
+            printf("[Orquestador] Uso: %s [--microseconds|-m valor] [-d] [-h] [-s solicitudes]\n", argv[0]);
             printf("  -d : Simular un día completo (12 horas)\n");
             printf("  -h : Simular una hora específica\n");
             printf("  --microseconds/-m : Tiempo en microsegundos (mínimo 10000)\n");
+            printf("  -s : Forzar número exacto de solicitudes por hora (1-500)\n");
             return EXIT_FAILURE;
         }
     }
@@ -72,6 +85,17 @@ int main(int argc, char** argv) {
     // Inicializar memoria compartida
     inicializar_memoria(shm);
     set_microseconds(shm, microseconds);  // 1000000 microseconds si --fast, 0 si normal
+    
+    // Configurar solicitudes forzadas si se especificó -s
+    if (solicitudes_forzadas > 0) {
+        shm->usar_solicitudes_forzadas = true;
+        // Distribuir solicitudes: 60% residencial, 40% industrial
+        shm->solicitudes_forzadas_residencial = (int)(solicitudes_forzadas * 0.6);
+        shm->solicitudes_forzadas_industrial = solicitudes_forzadas - shm->solicitudes_forzadas_residencial;
+        printf("[Orquestador] Solicitudes forzadas configuradas: %d total (%d residencial, %d industrial)\n", 
+               solicitudes_forzadas, shm->solicitudes_forzadas_residencial, shm->solicitudes_forzadas_industrial);
+    }
+    
     printf("[Orquestador] Memoria compartida creada e inicializada (%d nodos)\n", NUM_NODOS);
     
     // Configurar manejador de señales
@@ -333,6 +357,11 @@ static void inicializar_memoria(MemoriaCompartida *shm) {
 
     sem_init(&shm->sem_hora_empezada_residencial, 1, 0);
     sem_init(&shm->sem_hora_empezada_industrial, 1, 0);
+    
+    // Inicializar control de solicitudes forzadas
+    shm->usar_solicitudes_forzadas = false;
+    shm->solicitudes_forzadas_residencial = 0;
+    shm->solicitudes_forzadas_industrial = 0;
 }
 
 static void destruir_memoria_compartida(MemoriaCompartida *shm, int shm_fd) {

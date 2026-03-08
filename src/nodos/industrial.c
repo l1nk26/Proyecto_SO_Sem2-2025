@@ -58,7 +58,11 @@ void recuperar_solicitudes_aplazadas(int *recuperados, int dia_i, int hora_i) {
 
 static void crear_solicitudes() {
     // asignar el maximo de solicitudes para el dia
-    max_solicitudes = 250 - shm->max_solicitudes_residencial;
+    if (shm->usar_solicitudes_forzadas) {
+        max_solicitudes = shm->solicitudes_forzadas_industrial * HORAS_DIA;
+    } else {
+        max_solicitudes = 250 - shm->max_solicitudes_residencial;
+    }
     
     // Generar numero de solicitudes para el dia
     generar_solicitudes();
@@ -206,6 +210,16 @@ static void manejador_senal(int sig) {
 // [MIN_SOLICITUDES to MAX_SOLICITUDES] dependiendo de max_solicitudes
 static void generar_solicitudes(void) {
 
+    if (shm->usar_solicitudes_forzadas) {
+        // Usar valores exactos desde memoria compartida
+        int solicitudes_por_hora = shm->solicitudes_forzadas_industrial;
+        for (int i = 0; i < HORAS_DIA; i++) {
+            solicitudes[i] = solicitudes_por_hora;
+        }
+        return;
+    }
+
+    // Lógica actual con Poisson cuando no se usa forzado
     int total_solicitudes = 0;
     
     for (int i = 0; i < HORAS_DIA; i++) {

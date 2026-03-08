@@ -87,9 +87,9 @@ int main(void) {
     while (shm->simulacion_activa && !proceso_terminado) {
 
 
-        printf("[Industrial] (%06ld) Esperando a residencial para escoger máximo...\n", obtener_timestamp_micros());
+        //printf("[Industrial] (%06ld) Esperando a residencial para escoger máximo...\n", obtener_timestamp_micros());
         sem_wait(&shm->sem_residencial_escoge_maximo); // esperar a residencial
-        printf("[Industrial] (%06ld) Residencial liberó el semáforo, continuando...\n", obtener_timestamp_micros());
+        //printf("[Industrial] (%06ld) Residencial liberó el semáforo, continuando...\n", obtener_timestamp_micros());
         
         crear_solicitudes();
         

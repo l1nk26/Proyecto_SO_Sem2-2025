@@ -22,6 +22,10 @@ static MensajeAlerta alerta_actual;
 static void manejador_senal(int sig) {
     (void)sig;
     auditor_terminado = 1;
+    // Despertar hilos bloqueados
+    sem_post(&shm->sem_auditor_listas);
+    sem_post(&shm->sem_auditor);
+    printf("[Auditor] Terminando Simulacion por señal..\n");
 }
 
 void inicializar_auditor(void) {
@@ -40,19 +44,24 @@ void inicializar_auditor(void) {
 
 void cleanup_auditor(void) {
     printf("[Auditor] Limpiando recursos...\n");
+
+    //terminar los bucles infinitos
+    auditor_terminado = 1;
     
+    // Despertar hilos bloqueados
+    sem_post(&shm->sem_auditor_listas);
+    sem_post(&shm->sem_auditor);
+
     // Esperar a que terminen los hilos
-    if (hilo_alertas_tid) {
-        pthread_join(hilo_alertas_tid, NULL);
-    }
-    if (hilo_calculo_tid) {
-        pthread_join(hilo_calculo_tid, NULL);
-    }
+    if (hilo_alertas_tid) pthread_join(hilo_alertas_tid, NULL);
+    if (hilo_calculo_tid) pthread_join(hilo_calculo_tid, NULL);
     
     // Desconectar memoria compartida
     if (shm) {
         desconectar_shm(shm);
     }
+
+    printf("[Auditor] Recursos Completamente Limpiados, Auditor Finalizado.\n");
 }
 
 // Calcula el consumo por hora
@@ -217,6 +226,11 @@ int main(void) {
     // Esperar fin de simulación
     while (!auditor_terminado && shm->simulacion_activa) {
         sleep(1);
+
+        // Depuración
+        printf("[Auditor] Estado: terminado=%d, activa=%d, dia=%d, hora=%d\n",
+            auditor_terminado, shm->simulacion_activa, 
+            shm->dia_actual, shm->hora_actual);
     }
     
     printf("[Auditor] Simulación finalizada, limpiando...\n");

@@ -139,8 +139,6 @@ static void lanzar_hilos_solicitud(int dia_i, int hora_i) {
     }
     solicitudes[hora_i] += recuperados;
 
-    int seed = USER_INDEX_R;
-
     for (int i = recuperados; i < solicitudes[hora_i]; i++) {
         
         // Inicializamos su espacio

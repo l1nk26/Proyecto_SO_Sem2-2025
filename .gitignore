@@ -7,8 +7,4 @@ ordenar_logs.py
 /auditor
 /monitor
 script.py
-#monitor/
-*.txt
-auditor
-src/monitoreo/monitor.c
 *.txt

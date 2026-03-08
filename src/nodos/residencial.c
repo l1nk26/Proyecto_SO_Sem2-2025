@@ -174,14 +174,16 @@ static void lanzar_hilos_solicitud(int dia_i, int hora_i) {
 
 
 int main(void) {
-    inicializar_y_configurar();
 
     // Conectar a memoria compartida
     shm = conectar_shm();
-    if (shm == NULL) {
-        fprintf(stderr, "[Residencial] Error: No se pudo conectar a memoria compartida\n");
-        return EXIT_FAILURE;
+    while (shm == NULL) {
+        fprintf(stderr, "[Residencial] Error: No se pudo conectar a memoria compartida, volviendo a intentar...\n");
+        sleep(2);
+        shm = conectar_shm();
     }
+    inicializar_y_configurar();
+   
     sem_wait(&shm->activador_residencial);
     
     printf("[Residencial] (%06ld) Proceso iniciado (PID: %d)\n", obtener_timestamp_micros(), getpid());

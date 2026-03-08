@@ -69,14 +69,17 @@ static void crear_solicitudes() {
 }
 
 int main(void) {
-    inicializar_y_configurar();
 
     // Conectar a memoria compartida
     shm = conectar_shm();
-    if (shm == NULL) {
-        fprintf(stderr, "[Industrial] Error: No se pudo conectar a memoria compartida\n");
-        return EXIT_FAILURE;
+    while (shm == NULL) {
+        fprintf(stderr, "[Industrial] Error: No se pudo conectar a memoria compartida, volviendo a intentar...\n");
+        sleep(2);
+        shm = conectar_shm();
     }
+    inicializar_y_configurar();
+
+
     sem_wait(&shm->activador_industrial);
     
     printf("[Industrial] (%06ld) Proceso iniciado (PID: %d)\n", obtener_timestamp_micros(), getpid());

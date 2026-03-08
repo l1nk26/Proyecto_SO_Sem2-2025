@@ -82,8 +82,6 @@ void* hilo_calculo_horario(void *arg) {
 void* hilo_procesar_alertas(void *arg) {
     (void)arg;
 
-    
-    
     printf("[Auditor-Alertas] Hilo iniciado, esperando alertas...\n");
     
     while (!auditor_terminado && shm->simulacion_activa) {
@@ -96,31 +94,38 @@ void* hilo_procesar_alertas(void *arg) {
 
         // Voy A SUPONER QUE SOLO VA HABER UNO A LA VEZ QUE ESTA SOLICITANDO EL CONSUMO DE 500 litros
         int nodo_id_critico;
+        
         pthread_mutex_lock(&shm->mutex_consumo_critico);
         nodo_id_critico = shm->nodo_consumo_critico_id;
         pthread_mutex_unlock(&shm->mutex_consumo_critico); 
         // Lectura concurrente de consumo_horario
-
-        if (leer_nodo(shm, nodo_id_critico) == 0) {
-                
-            alerta_actual.nodo_id = nodo_id_critico;
-            alerta_actual.litros_consumidos = (shm->valvulas[nodo_id_critico].consumo_horario)*1000.0;
-            alerta_actual.usuario_id = shm->valvulas[nodo_id_critico].usuario_id;
-            alerta_actual.es_critico = true; 
-            terminar_lectura_nodo(shm, nodo_id_critico);
-            break;
-                
-            terminar_lectura_nodo(shm, nodo_id_critico);
-        }
         
-        // Procesar alerta actual
-        if(alerta_actual.es_critico)
-            procesar_alerta_critica(&alerta_actual);
+        if (nodo_id_critico != -1) {
+            if (leer_nodo(shm, nodo_id_critico) == 0) {
+                    
+                alerta_actual.nodo_id = nodo_id_critico;
+                alerta_actual.litros_consumidos = (shm->valvulas[nodo_id_critico].consumo_horario)*1000.0;
+                alerta_actual.usuario_id = shm->valvulas[nodo_id_critico].usuario_id;
+                alerta_actual.es_critico = true; 
+                    
+                terminar_lectura_nodo(shm, nodo_id_critico);
+            }
+            
 
-        alerta_actual.es_critico = false;
+            // Procesar alerta actual
+            if(alerta_actual.es_critico)
+                procesar_alerta_critica(&alerta_actual);
 
-        printf("[Auditor-Alertas] Alerta procesada: Nodo %d, %.2f litros\n", 
-               alerta_actual.nodo_id, alerta_actual.litros_consumidos);
+            alerta_actual.es_critico = false;
+
+             // Limpiar para próxima alerta
+            pthread_mutex_lock(&shm->mutex_consumo_critico);
+            shm->nodo_consumo_critico_id = -1;  // ← Resetear
+            pthread_mutex_unlock(&shm->mutex_consumo_critico);
+
+            printf("[Auditor-Alertas] Alerta procesada: Nodo %d, %.2f litros\n", 
+                alerta_actual.nodo_id, alerta_actual.litros_consumidos);
+        }
     }
     
     printf("[Auditor-Alertas] Hilo terminado\n");
@@ -129,7 +134,7 @@ void* hilo_procesar_alertas(void *arg) {
 
 void procesar_alerta_critica(const MensajeAlerta *msg) {
     // Decidir aleatoriamente si es crítico (aprueba) o estándar (multa)
-    
+
     int es_critico = rand() % 2; 
     // 50% de probabilidad de que sea crítico (1)
     //int es_critico = (rand() % 100 < 50) ? 1 : 0; // 0=estándar, 1=crítico

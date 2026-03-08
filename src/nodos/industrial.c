@@ -114,6 +114,7 @@ int main(void) {
             // Avisar al líder que estamos listos para la hora
             sem_wait(&shm->sem_hora_empezada_industrial);
             
+            if (!shm->simulacion_activa || proceso_terminado) break;
             
             printf("[Industrial] (%06ld) Día %d, Hora %d: Generando solicitudes...\n", 
                     obtener_timestamp_micros(), dia_actual, hora_actual);
@@ -154,6 +155,9 @@ int main(void) {
             sem_post(&shm->sem_nodo_industrial_listo_hora);
 
 
+        }
+        if (!shm->simulacion_activa || proceso_terminado) {
+            break;
         }
         
         sem_wait(&shm->sem_nodo_industrial_dia_fin);

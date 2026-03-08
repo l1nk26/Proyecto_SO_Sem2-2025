@@ -226,11 +226,6 @@ int main(void) {
     // Esperar fin de simulación
     while (!auditor_terminado && shm->simulacion_activa) {
         sleep(1);
-
-        // Depuración
-        printf("[Auditor] Estado: terminado=%d, activa=%d, dia=%d, hora=%d\n",
-            auditor_terminado, shm->simulacion_activa, 
-            shm->dia_actual, shm->hora_actual);
     }
     
     printf("[Auditor] Simulación finalizada, limpiando...\n");

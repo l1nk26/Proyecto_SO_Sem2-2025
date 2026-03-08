@@ -175,7 +175,7 @@ int main(int argc, char** argv) {
 
 
     // Enviar SIGTERM a todos los procesos hijos
-    for (int i = 0; i < 2; i++) { // Solo verificar el proceso residencial
+    for (int i = 0; i < 4; i++) { // Solo verificar el proceso residencial
         if (pids[i] > 0) {
             printf("[Orquestador] Enviando SIGTERM a PID %d\n", pids[i]);
             if (kill(pids[i], SIGTERM) < 0) {
@@ -186,7 +186,7 @@ int main(int argc, char** argv) {
     
     // Esperar a que todos los procesos terminen
     printf("[Orquestador] Esperando finalización de procesos...\n");
-    for (int i = 0; i < 2; i++) { // Solo verificar el proceso residencial
+    for (int i = 0; i < 4; i++) { // Solo verificar el proceso residencial
         if (pids[i] > 0) {
             int status;
             pid_t result = waitpid(pids[i], &status, 0);

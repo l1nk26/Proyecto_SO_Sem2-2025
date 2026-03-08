@@ -148,7 +148,7 @@ void procesar_alerta_critica(const MensajeAlerta *msg) {
                msg->nodo_id, msg->litros_consumidos, msg->usuario_id);
     } else {
         shm->senales_estandar++;
-        shm->amonestaciones_digitales++;
+        //sshm->amonestaciones_digitales++;
         printf("[Auditor] Consumo ESTÁNDAR multado: Nodo %d, %.2f litros, El Usuario id, %d\n", 
                msg->nodo_id, msg->litros_consumidos, msg->usuario_id);
     }

@@ -204,10 +204,9 @@ int main(void) {
             // actualizar indice de informacion de hilos para acceder a informacion_hilos
             actualizar_nro_solicitudes(dia_actual - 1, i);
             
-            // Avisar al líder que estamos listos para la hora
-            sem_post(&shm->sem_nodo_residencial_listo_hora);
+            sem_wait(&shm->sem_hora_empezada_residencial);
             
-            
+            if (!shm->simulacion_activa || proceso_terminado) break;
             printf("[Residencial] (%06ld) Día %d, Hora %d: Generando solicitudes...\n", 
             obtener_timestamp_micros(), dia_actual, hora_actual);
 
@@ -261,6 +260,9 @@ int main(void) {
             sem_post(&shm->sem_nodo_residencial_listo_hora);
             
 
+        }
+        if (!shm->simulacion_activa || proceso_terminado) {
+            break;
         }
         
         sem_wait(&shm->sem_nodo_residencial_dia_fin);

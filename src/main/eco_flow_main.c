@@ -88,8 +88,7 @@ int main(int argc, char** argv) {
     pids[0] = lanzar_proceso("residencial");
     pids[1] = lanzar_proceso("industrial");
     pids[2] = lanzar_proceso("auditor");
-    pids[3] = 0;
-    // pids[3] = lanzar_proceso("monitor");
+    pids[3] = lanzar_proceso("monitor");
 
 
 
@@ -131,17 +130,19 @@ int main(int argc, char** argv) {
                 shm->valvulas[nodo].consumo_horario = 0.0;
             }
             
-            // Esperar a que los nodos estén listos para la hora
-            sem_wait(&shm->sem_nodo_residencial_listo_hora);
-            sem_wait(&shm->sem_nodo_industrial_listo_hora);
-            
+            sem_post(&shm->sem_hora_empezada_residencial);
+            sem_post(&shm->sem_hora_empezada_industrial);
 
 
             for (int i = 0; i < 60; i++) {
                 usleep(microseconds / 60); // 1 minuto
                 shm->minuto_actual = i;
+                if (i == 30) {
+                    sem_post(&shm->sem_monitoreo);
+                }
             }
 
+            // no se si estan haciendo algo pero los dejo ahi por si acaso
             sem_post(&shm->sem_nodo_residencial);
             sem_post(&shm->sem_nodo_industrial);
             
@@ -176,7 +177,7 @@ int main(int argc, char** argv) {
 
 
     // Enviar SIGTERM a todos los procesos hijos
-    for (int i = 0; i < 2; i++) { // Solo verificar el proceso residencial
+    for (int i = 0; i < 4; i++) { // Solo verificar el proceso residencial
         if (pids[i] > 0) {
             printf("[Orquestador] Enviando SIGTERM a PID %d\n", pids[i]);
             if (kill(pids[i], SIGTERM) < 0) {
@@ -187,7 +188,7 @@ int main(int argc, char** argv) {
     
     // Esperar a que todos los procesos terminen
     printf("[Orquestador] Esperando finalización de procesos...\n");
-    for (int i = 0; i < 2; i++) { // Solo verificar el proceso residencial
+    for (int i = 0; i < 4; i++) { // Solo verificar el proceso residencial
         if (pids[i] > 0) {
             int status;
             pid_t result = waitpid(pids[i], &status, 0);
@@ -324,7 +325,7 @@ static void inicializar_memoria(MemoriaCompartida *shm) {
     shm->nodo_consumo_critico_id = -1;
     pthread_mutex_init(&shm->mutex_consumo_critico, NULL);
 
-    sem_init(&shm->sem_hora_empezada_auditor, 1, 0);
+    sem_init(&shm->sem_hora_empezada_residencial, 1, 0);
     sem_init(&shm->sem_hora_empezada_industrial, 1, 0);
 }
 

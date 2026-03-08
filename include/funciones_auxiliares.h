@@ -40,7 +40,10 @@
 #define MAX_LITROS_I 950.0
 
 enum operacion {NINGUNA = 0, RESERVACION, CANCELACION, CONSULTA_PRESION};
-enum estados_de_solicitud {PENDIENTE = 0, PROCESADA, CANCELADA, APLAZADA, DESCONOCIDO, RECUPERADA};
+enum estados_de_solicitud {PENDIENTE = 0, PROCESADA, CANCELADA, APLAZADA, DESCONOCIDO, DUPLICADA1, DUPLICADA2};
+
+const int nombre_operacion_count = 4;
+const int nombre_estado_count = 7;
 
 static const char* nombre_operacion[] = {
     "NINGUNA         ",
@@ -54,7 +57,9 @@ static const char* nombre_estado[] = {
     "PROCESADA       ",
     "CANCELADA       ",
     "APLAZADA        ",
-    "DESCONOCIDO     "
+    "DESCONOCIDO     ",
+    "DUPLICADA1      ",
+    "DUPLICADA2      "
 };
 
 typedef struct {
@@ -108,7 +113,7 @@ static void consultar_presion(InfoHilo *info, const char *nombre_proceso);
 
 static void cancelar_solicitud(InfoHilo *info, const char *nombre_proceso);
 static void generar_amonestacion(InfoHilo *info);
-static void pagar_tarifa_excedente(InfoHilo *info, int nodo_id);
+static bool pagar_tarifa_excedente(InfoHilo *info, int nodo_id);
 
 static void esperar_asignacion(InfoHilo *info, const char *nombre_proceso);
 static void consumir_agua(InfoHilo *info, const char *nombre_proceso);
@@ -286,8 +291,8 @@ double generar_random_range(double min, double max, unsigned int *seed) {
 }
 
 void mostrar_estado_detalles_hilo(InfoHilo *info, const char *mensaje, const char *proceso) {
-    printf("[%s] (%06ld) %s Hilo %d. Estado: operacion=%d, estado de solicitud=%d\n", 
-           proceso, obtener_timestamp_micros(), mensaje, info->usuario_id, info->operacion, info->edo_solicitud);
+    printf("[%s] (%010ld) %s Hilo %d. Estado: operacion=%S, estado de solicitud=%s\n", 
+           proceso, obtener_timestamp_micros(), mensaje, info->usuario_id, nombre_operacion[info->operacion], nombre_estado[info->edo_solicitud]);
 }
 
 void set_operacion(InfoHilo *info, int operacion) {
@@ -344,13 +349,12 @@ void manejador_de_finalizacion_temprana(void *arg) {
     shm->tiempo_espera_total_micros += tiempo_espera;
     unlock_metricas(shm);
 
-    if (get_ha_terminado_el_dia_actual()) {
-        set_edo_solicitud(datos, DESCONOCIDO);
-        //datos->edo_op_realizada = NINGUNA;
+    if (get_edo_solicitud(datos) == DUPLICADA1 ||
+        get_edo_solicitud(datos) == DUPLICADA2) {
+        return;
     }
     else {
         set_edo_solicitud(datos, DESCONOCIDO);
-        //datos->edo_op_realizada = NINGUNA;
     }
 }
 
@@ -398,10 +402,10 @@ static void consultar_presion(InfoHilo *info, const char *nombre_proceso) {
 
     mostrar_estado_detalles_hilo(info, "Consultando presión", nombre_proceso);   
 
-    pthread_rwlock_rdlock(&shm->mutex_nodos);
+    //pthread_rwlock_rdlock(&shm->mutex_nodos);
 
     if (get_ha_terminado_la_hora_actual() || get_ha_terminado_el_dia_actual()) {
-        pthread_rwlock_unlock(&shm->mutex_nodos);
+        //pthread_rwlock_unlock(&shm->mutex_nodos);
         //sem_post(&shm->sem_nodos_libres);
 
         manejador_de_finalizacion_temprana_dia_hora(info);
@@ -409,14 +413,17 @@ static void consultar_presion(InfoHilo *info, const char *nombre_proceso) {
         return;
     }
     
+    // simular que hacemos algo
     int nodos_disponibles = 0;
     for (int i = 0; i < NUM_NODOS; i++) {
+        pthread_rwlock_rdlock(&shm->valvulas[i].rwlock_nodo);
         if (!shm->valvulas[i].ocupado) {
             nodos_disponibles++;
         }
+        pthread_rwlock_unlock(&shm->valvulas[i].rwlock_nodo);
     }
     
-    pthread_rwlock_unlock(&shm->mutex_nodos);
+    //pthread_rwlock_unlock(&shm->mutex_nodos);
 
     manejador_de_finalizacion_exitosa(info);
 
@@ -446,7 +453,11 @@ static void cancelar_solicitud(InfoHilo *info, const char *nombre_proceso) {
         mostrar_estado_detalles_hilo(info, "Cancelación rechazada - Sin reserva", nombre_proceso);
     }
     else {
-        pagar_tarifa_excedente(info, nodo);
+        if (!pagar_tarifa_excedente(info, nodo)) {
+            // Error al pagar tarifa excedente
+            manejador_de_finalizacion_temprana(info);
+            return;
+        }
         mostrar_estado_detalles_hilo(info, "Cancelación exitosa", nombre_proceso);
     }
 
@@ -462,8 +473,12 @@ static void generar_amonestacion(InfoHilo *info) {
 }
 
 
-static void pagar_tarifa_excedente(InfoHilo *info, int nodo_id) {
-    liberar_nodo(shm, nodo_id, info->usuario_id);
+static bool pagar_tarifa_excedente(InfoHilo *info, int nodo_id) {
+    if (liberar_nodo(shm, nodo_id, info->usuario_id) == -1) {
+        set_edo_solicitud(info, DUPLICADA2);
+        return false;
+    }
+    return true;
 }
 
 
@@ -483,9 +498,17 @@ static void esperar_asignacion(InfoHilo *info, const char *nombre_proceso) {
     int nodo = obtener_nodo_disponible(info);
 
     // Teoricamente no deberia de ser -1, pero por si acaso
-    if (nodo == -1 || verificar_reserva(info) != -1) {
+    if (nodo == -1) {
         pthread_rwlock_unlock(&shm->mutex_nodos);
         sem_post(&shm->sem_nodos_libres);
+        manejador_de_finalizacion_temprana(info);
+        return;
+    }
+
+    if (verificar_reserva(info) != -1) {
+        pthread_rwlock_unlock(&shm->mutex_nodos);
+        sem_post(&shm->sem_nodos_libres);
+        set_edo_solicitud(info, DUPLICADA1);
         manejador_de_finalizacion_temprana(info);
         return;
     }
@@ -498,15 +521,23 @@ static void esperar_asignacion(InfoHilo *info, const char *nombre_proceso) {
         return;
     }
     pthread_rwlock_unlock(&shm->mutex_nodos);
-
-    reservar_nodo(shm, nodo, info->usuario_id);
-
+    
+    
+    pthread_rwlock_wrlock(&shm->valvulas[nodo].rwlock_nodo);
+    if (reservar_nodo(shm, nodo, info->usuario_id) == -1) {
+        sem_post(&shm->sem_nodos_libres);
+        if (!(shm == NULL || nodo < 0 || nodo >= NUM_NODOS)) {
+            set_edo_solicitud(info, DUPLICADA2);
+        }
+        pthread_rwlock_unlock(&shm->valvulas[nodo].rwlock_nodo);
+        manejador_de_finalizacion_temprana(info);
+        return;
+    }
+    
+    
     info->id_nodo = nodo;  // Asignar el ID del nodo reservado
-
-
-    pthread_rwlock_wrlock(&shm->valvulas[nodo].rwlock_nodo); // temporal
     consumir_agua(info, nombre_proceso);
-    pthread_rwlock_unlock(&shm->valvulas[nodo].rwlock_nodo); // temporal
+    pthread_rwlock_unlock(&shm->valvulas[nodo].rwlock_nodo);
 
 
     manejador_de_finalizacion_exitosa(info);
@@ -625,12 +656,12 @@ void mostrar_contenido(InfoHilo info[DIAS_SIMULACION][HORAS_DIA][MAX_SOLICITUDES
                 unsigned int edo = p->edo_solicitud;
 
                 // Verificar rangos para evitar desbordamiento de arreglos
-                if (op < 4) conteo_operacion[op]++;
-                if (edo < 5) conteo_estado[edo]++;
+                if (op < nombre_operacion_count) conteo_operacion[op]++;
+                if (edo < nombre_estado_count) conteo_estado[edo]++;
 
                 // Traducir valores de enumeración a cadenas
-                const char *op_str = (op < 4) ? nombre_operacion[op] : "DESCONOCIDO";
-                const char *edo_str = (edo < 5) ? nombre_estado[edo] : "DESCONOCIDO";
+                const char *op_str = (op < nombre_operacion_count) ? nombre_operacion[op] : "DESCONOCIDO";
+                const char *edo_str = (edo < nombre_estado_count) ? nombre_estado[edo] : "DESCONOCIDO";
 
                 // Imprimir registro en el archivo
                 fprintf(log, "  [%02d:%02d:%02d]  %8u  %6u  %12.6f  %6.2f  %-15s  %-10s\n",
@@ -667,23 +698,31 @@ void mostrar_contenido(InfoHilo info[DIAS_SIMULACION][HORAS_DIA][MAX_SOLICITUDES
 
     // Conteo por operación
     fprintf(log, "\nConteo por tipo de operación:\n");
-    for (int i = 0; i < 4; i++) {
+    for (int i = 0; i < nombre_operacion_count; i++) {
         fprintf(log, "  %-20s : %d\n", nombre_operacion[i], conteo_operacion[i]);
     }
 
     // Conteo por estado
     fprintf(log, "\nConteo por estado de solicitud:\n");
-    for (int i = 0; i < 5; i++) {
+    for (int i = 0; i < nombre_estado_count; i++) {
         fprintf(log, "  %-20s : %d\n", nombre_estado[i], conteo_estado[i]);
     }
 
     fprintf(log, "\n=== ESTADÍSTICAS POR OPERACIÓN ===\n");
     
     // Reiniciar contadores para cálculos por operación
-    long long conteo_por_op[4] = {0};
-    double suma_tiempo_por_op[4] = {0.0};
-    double suma_m3_por_op[4] = {0.0};
+    long long conteo_por_op[nombre_operacion_count];
+    double suma_tiempo_por_op[nombre_operacion_count];
+    double suma_m3_por_op[nombre_operacion_count];
         
+    // inicializar
+    for (int i = 0; i < nombre_operacion_count; i++) {
+        conteo_por_op[i] = 0;
+        suma_tiempo_por_op[i] = 0.0;
+        suma_m3_por_op[i] = 0.0;
+    }
+
+
     // Recorrer nuevamente para acumular por operación
     for (int dia = 0; dia < DIAS_SIMULACION; dia++) {
         for (int hora = 0; hora < HORAS_DIA; hora++) {
@@ -696,7 +735,7 @@ void mostrar_contenido(InfoHilo info[DIAS_SIMULACION][HORAS_DIA][MAX_SOLICITUDES
                 double espera = calcular_tiempo_transcurrido_micros_int(&p->tiempo_espera_inicial, &p->tiempo_espera_final);
                 unsigned int op = p->operacion;
                     
-                if (op < 4) {
+                if (op < nombre_operacion_count) {
                     conteo_por_op[op]++;
                     suma_tiempo_por_op[op] += espera;
                     suma_m3_por_op[op] += p->m3_consumidos;
@@ -706,7 +745,7 @@ void mostrar_contenido(InfoHilo info[DIAS_SIMULACION][HORAS_DIA][MAX_SOLICITUDES
     }
         
     // Mostrar estadísticas por operación
-    for (int i = 0; i < 4; i++) {
+    for (int i = 0; i < nombre_operacion_count; i++) {
         if (conteo_por_op[i] > 0) {
             DT dt_promedio_op = micros_to_DT(suma_tiempo_por_op[i] / conteo_por_op[i], shm->microseconds);
             double m3_promedio_op = suma_m3_por_op[i] / conteo_por_op[i];

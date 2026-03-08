@@ -334,10 +334,9 @@ static void* hilo_solicitud(void *arg) {
 
     //pthread_cleanup_pop(1);
 
-    if (get_operacion(info) == DESCONOCIDO) {
+    if (get_edo_solicitud(info) != PROCESADA) {
         return NULL;
     }
-
     // aumentar el numero de consultas
     lock_metricas(shm);
     shm->total_consultas_realizadas++;

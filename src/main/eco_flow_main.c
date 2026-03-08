@@ -88,8 +88,7 @@ int main(int argc, char** argv) {
     pids[0] = lanzar_proceso("residencial");
     pids[1] = lanzar_proceso("industrial");
     pids[2] = lanzar_proceso("auditor");
-    pids[3] = 0;
-    // pids[3] = lanzar_proceso("monitor");
+    pids[3] = lanzar_proceso("monitor");
 
 
 
@@ -138,6 +137,9 @@ int main(int argc, char** argv) {
             for (int i = 0; i < 60; i++) {
                 usleep(microseconds / 60); // 1 minuto
                 shm->minuto_actual = i;
+                if (i == 30) {
+                    sem_post(&shm->sem_monitoreo);
+                }
             }
 
             // no se si estan haciendo algo pero los dejo ahi por si acaso

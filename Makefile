@@ -42,7 +42,7 @@ TARGET = eco_flow
 .PHONY: all clean clean-all debug test run help setup residencial industrial auditor monitor clean_cache clean_debug
 
 # Compilar todos los ejecutables (principal + procesos)
-all: setup $(TARGET) residencial industrial auditor
+all: setup $(TARGET) residencial industrial auditor monitor
 
 # Crear directorios necesarios
 setup:

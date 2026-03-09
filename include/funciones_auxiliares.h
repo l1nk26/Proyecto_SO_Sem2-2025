@@ -679,7 +679,7 @@ void mostrar_contenido(InfoHilo info[DIAS_SIMULACION][HORAS_DIA][MAX_SOLICITUDES
 
                 // Imprimir registro en el archivo
                 fprintf(log, "  [%02d:%02d:%02d]  %8u  %6u  %12.6f  %6.2f  %-15s  %-10s\n",
-                        dia, hora, i,
+                        dia + 1, hora + HORA_INICIO, i,
                         p->usuario_id,
                         p->hilo_id,
                         espera,

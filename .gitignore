@@ -6,5 +6,6 @@ ordenar_logs.py
 /residencial
 /auditor
 /monitor
+/monitor_nodos
 script.py
 *.txt

@@ -16,6 +16,7 @@ IPC_SOURCES = $(SRC_DIR)/ipc/ipc_utils.c
 AUDITOR_SOURCES = $(SRC_DIR)/auditor/auditor.c
 NODOS_SOURCES = $(SRC_DIR)/nodos/residencial.c $(SRC_DIR)/nodos/industrial.c
 MONITOREO_SOURCES = $(SRC_DIR)/monitoreo/monitor.c
+MONITOR_NODOS_SOURCES = $(SRC_DIR)/monitoreo/monitor_nodos.c
 
 # Para prueba preliminar: solo compilar main + ipc
 PRUEBA_SOURCES = $(MAIN_SOURCES) $(IPC_SOURCES)
@@ -29,6 +30,7 @@ IPC_OBJECTS = $(IPC_SOURCES:$(SRC_DIR)/%.c=$(BUILD_DIR)/%.o)
 AUDITOR_OBJECTS = $(AUDITOR_SOURCES:$(SRC_DIR)/%.c=$(BUILD_DIR)/%.o)
 NODOS_OBJECTS = $(NODOS_SOURCES:$(SRC_DIR)/%.c=$(BUILD_DIR)/%.o)
 MONITOREO_OBJECTS = $(MONITOREO_SOURCES:$(SRC_DIR)/%.c=$(BUILD_DIR)/%.o)
+MONITOR_NODOS_OBJECTS = $(MONITOR_NODOS_SOURCES:$(SRC_DIR)/%.c=$(BUILD_DIR)/%.o)
 
 # Archivos objeto (solo para prueba preliminar)
 PRUEBA_OBJECTS = $(PRUEBA_SOURCES:$(SRC_DIR)/%.c=$(BUILD_DIR)/%.o)
@@ -39,10 +41,10 @@ ALL_OBJECTS = $(PRUEBA_OBJECTS)
 TARGET = eco_flow
 
 # Reglas por defecto
-.PHONY: all clean clean-all debug test run help setup residencial industrial auditor monitor clean_cache clean_debug
+.PHONY: all clean clean-all debug test run help setup residencial industrial auditor monitor monitor_nodos clean_cache clean_debug
 
 # Compilar todos los ejecutables (principal + procesos)
-all: setup $(TARGET) residencial industrial auditor monitor
+all: setup $(TARGET) residencial industrial auditor monitor monitor_nodos
 
 # Crear directorios necesarios
 setup:
@@ -69,6 +71,9 @@ auditor: setup $(SRC_DIR)/auditor/auditor.c $(IPC_OBJECTS)
 monitor: setup $(SRC_DIR)/monitoreo/monitor.c $(IPC_OBJECTS)
 	$(CC) $(CFLAGS) $(INCLUDES) $(SRC_DIR)/monitoreo/monitor.c $(IPC_OBJECTS) -o $@ -pthread -lrt -lm
 
+monitor_nodos: setup $(SRC_DIR)/monitoreo/monitor_nodos.c $(IPC_OBJECTS)
+	$(CC) $(CFLAGS) $(INCLUDES) $(SRC_DIR)/monitoreo/monitor_nodos.c $(IPC_OBJECTS) -o $@ -pthread -lrt -lm
+
 # Compilación con debug
 debug: 
 	$(MAKE) CFLAGS="$(CFLAGS) $(DEBUG_FLAGS)"
@@ -86,7 +91,7 @@ clean:
 # Limpiar todo incluyendo logs y ejecutables individuales
 clean-all: clean
 	rm -rf $(LOGS_DIR)
-	rm -f residencial industrial auditor monitor
+	rm -f residencial industrial auditor monitor monitor_nodos
 
 # Mostrar ayuda
 help:
@@ -107,3 +112,4 @@ $(BUILD_DIR)/auditor/auditor.o: $(BUILD_DIR)/ipc/ipc_utils.o $(BUILD_DIR)/main/e
 $(BUILD_DIR)/nodos/residencial.o: $(BUILD_DIR)/ipc/ipc_utils.o
 $(BUILD_DIR)/nodos/industrial.o: $(BUILD_DIR)/ipc/ipc_utils.o
 $(BUILD_DIR)/monitoreo/monitor.o: $(BUILD_DIR)/ipc/ipc_utils.o $(BUILD_DIR)/main/eco_flow_main.o
+$(BUILD_DIR)/monitoreo/monitor_nodos.o: $(BUILD_DIR)/ipc/ipc_utils.o

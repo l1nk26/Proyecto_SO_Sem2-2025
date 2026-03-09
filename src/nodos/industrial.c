@@ -73,7 +73,7 @@ int main(void) {
     // Conectar a memoria compartida
     shm = conectar_shm();
     while (shm == NULL) {
-        fprintf(stderr, "[Industrial] Error: No se pudo conectar a memoria compartida, volviendo a intentar...\n");
+        fprintf(stderr, "[Industrial ] Error: No se pudo conectar a memoria compartida, volviendo a intentar...\n");
         sleep(2);
         shm = conectar_shm();
     }
@@ -82,7 +82,7 @@ int main(void) {
 
     sem_wait(&shm->activador_industrial);
     
-    printf("[Industrial] (%06ld) Proceso iniciado (PID: %d)\n", obtener_timestamp_micros(), getpid());
+    printf("[Industrial ] (%010ld) Proceso iniciado (PID: %d)\n", obtener_timestamp_micros(), getpid());
     
     inicializar_semaforos();
 
@@ -94,9 +94,9 @@ int main(void) {
     while (shm->simulacion_activa && !proceso_terminado) {
 
 
-        //printf("[Industrial] (%06ld) Esperando a residencial para escoger máximo...\n", obtener_timestamp_micros());
+        //printf("[Industrial ] (%010ld) Esperando a residencial para escoger máximo...\n", obtener_timestamp_micros());
         sem_wait(&shm->sem_residencial_escoge_maximo); // esperar a residencial
-        //printf("[Industrial] (%06ld) Residencial liberó el semáforo, continuando...\n", obtener_timestamp_micros());
+        //printf("[Industrial ] (%010ld) Residencial liberó el semáforo, continuando...\n", obtener_timestamp_micros());
         
         crear_solicitudes();
         
@@ -123,7 +123,7 @@ int main(void) {
             
             if (!shm->simulacion_activa || proceso_terminado) break;
             
-            printf("[Industrial] (%06ld) Día %d, Hora %d: Generando solicitudes...\n", 
+            printf("[Industrial ] (%010ld) Día %d, Hora %d: Generando solicitudes...\n", 
                     obtener_timestamp_micros(), dia_actual, hora_actual);
                 
             // generar hilos
@@ -146,14 +146,14 @@ int main(void) {
             
             // luego espero a que terminen
             for (int h = 0; h < solicitudes[i]; h++) {
-                //printf("[Industrial] (%06ld) ESPERANDO CIERRE %d...\n", obtener_timestamp_micros(), informacion_hilos[dia_actual - 1][i][h].usuario_id);
+                //printf("[Industrial ] (%010ld) ESPERANDO CIERRE %d...\n", obtener_timestamp_micros(), informacion_hilos[dia_actual - 1][i][h].usuario_id);
                 //for (int h_sig = h; h_sig < solicitudes[i]; h_sig++) {
-                //    printf("[Industrial] (%06ld) RESTARIAN %d...\n", obtener_timestamp_micros(), informacion_hilos[dia_actual - 1][i][h_sig].usuario_id);
+                //    printf("[Industrial ] (%010ld) RESTARIAN %d...\n", obtener_timestamp_micros(), informacion_hilos[dia_actual - 1][i][h_sig].usuario_id);
                 //}
                 pthread_join(hilos[i][h], NULL);
             }
 
-            //printf("[Industrial] (%06ld) Día %d, Hora %d: PUDO LIBERAR...\n", obtener_timestamp_micros(), dia_actual, hora_actual);
+            //printf("[Industrial ] (%010ld) Día %d, Hora %d: PUDO LIBERAR...\n", obtener_timestamp_micros(), dia_actual, hora_actual);
 
 
             set_ha_terminado_la_hora_actual(false);
@@ -175,7 +175,7 @@ int main(void) {
     }
 
     // Generar reporte final antes de terminar
-    mostrar_contenido(informacion_hilos, numero_solicitudes, "Industrial");
+    mostrar_contenido(informacion_hilos, numero_solicitudes, "Industrial ");
 
     // Limpieza 
     desconectar_shm(shm);
@@ -204,9 +204,9 @@ static void inicializar_y_configurar(void) {
 static void manejador_senal(int sig) {
     (void)sig;
     proceso_terminado = 1;
-/*     printf("[Industrial] (%06ld) Señal recibida. Terminando proceso...\n", obtener_timestamp_micros());
+/*     printf("[Industrial ] (%010ld) Señal recibida. Terminando proceso...\n", obtener_timestamp_micros());
 */
-    if (debug) mostrar_contenido(informacion_hilos, numero_solicitudes, "Industrial");
+    if (debug) mostrar_contenido(informacion_hilos, numero_solicitudes, "Industrial ");
     
 }
 
@@ -242,7 +242,7 @@ static void generar_solicitudes(void) {
         }
     }
     // Debug: imprimir solicitudes generadas
-    /* printf("[Industrial] (%06ld) Solicitudes generadas: ", obtener_timestamp_micros());
+    /* printf("[Industrial ] (%010ld) Solicitudes generadas: ", obtener_timestamp_micros());
     for (int i = 0; i < HORAS_DIA; i++) {
         printf("%d ", solicitudes[i]);
     } */
@@ -261,7 +261,7 @@ static void lanzar_hilos_solicitud(int dia_i, int hora_i) {
     int recuperados = 0;
     if (numero_solicitudes_aplazadas > 0) {
         recuperar_solicitudes_aplazadas(&recuperados, dia_i, hora_i - 1);
-        printf("[Industrial] (%06ld) Hora %d: Recuperadas %d solicitudes aplazadas\n", 
+        printf("[Industrial ] (%010ld) Hora %d: Recuperadas %d solicitudes aplazadas\n", 
                obtener_timestamp_micros(), hora_i, recuperados);
     }
 
@@ -307,20 +307,20 @@ static void* hilo_solicitud(void *arg) {
             //pthread_testcancel();
             clock_gettime(CLOCK_MONOTONIC, &info->tiempo_espera_inicial);
 
-            esperar_asignacion(info, "Industrial");
+            esperar_asignacion(info, "Industrial ");
         } else if (info->operacion == CONSULTA_PRESION) {
             // en cualquier momento se puede consultar presion
             //usleep(microseconds * h * 0.98);
             //pthread_testcancel();
             clock_gettime(CLOCK_MONOTONIC, &info->tiempo_espera_inicial);
 
-            consultar_presion(info, "Industrial");
+            consultar_presion(info, "Industrial ");
         } else { // en los primeros 45 minutos se cancelan solicitudes
             //usleep(microseconds * h * 0.75);
             //pthread_testcancel();   
             clock_gettime(CLOCK_MONOTONIC, &info->tiempo_espera_inicial);
 
-            cancelar_solicitud(info, "Industrial");
+            cancelar_solicitud(info, "Industrial ");
         }
     }
     else {
@@ -331,7 +331,7 @@ static void* hilo_solicitud(void *arg) {
             //pthread_testcancel();
             clock_gettime(CLOCK_MONOTONIC, &info->tiempo_espera_inicial);
     
-            esperar_asignacion(info, "Industrial");
+            esperar_asignacion(info, "Industrial ");
         } else if (prob < 0.75) {
             // en cualquier momento se puede consultar presion
             
@@ -339,19 +339,19 @@ static void* hilo_solicitud(void *arg) {
         
             usleep(microseconds * h * 0.98);
             clock_gettime(CLOCK_MONOTONIC, &info->tiempo_espera_inicial);
-            consultar_presion(info, "Industrial");
+            consultar_presion(info, "Industrial ");
         } else { // en los primeros 45 minutos se cancelan solicitudes
             usleep(microseconds * h * 0.75);
             //pthread_testcancel();   
             clock_gettime(CLOCK_MONOTONIC, &info->tiempo_espera_inicial);
     
-            cancelar_solicitud(info, "Industrial");
+            cancelar_solicitud(info, "Industrial ");
         }
     }
     
     // Sincronizar salida para evitar mensajes mezclados
     if (debug){
-        mostrar_estado_detalles_hilo(info, "Finalizando", "Industrial");
+        mostrar_estado_detalles_hilo(info, "Finalizando", "Industrial ");
     }
     fflush(stdout);
 

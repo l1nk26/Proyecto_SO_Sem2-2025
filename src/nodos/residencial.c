@@ -111,7 +111,7 @@ static void crear_solicitudes() {
 static void manejador_senal(int sig) {
     (void)sig;
     proceso_terminado = 1;
-/*     printf("[Residencial] (%06ld) Señal recibida. Terminando proceso...\n", obtener_timestamp_micros());
+/*     printf("[Residencial] (%010ld) Señal recibida. Terminando proceso...\n", obtener_timestamp_micros());
 */
     if (debug) mostrar_contenido(informacion_hilos, numero_solicitudes, "Residencial");
 }
@@ -145,7 +145,7 @@ static void lanzar_hilos_solicitud(int dia_i, int hora_i) {
     int recuperados = 0;
     if (numero_solicitudes_aplazadas > 0) {
         recuperar_solicitudes_aplazadas(&recuperados, dia_i, hora_i - 1);
-        printf("[Residencial] (%06ld) Hora %d: Recuperadas %d solicitudes aplazadas\n", 
+        printf("[Residencial] (%010ld) Hora %d: Recuperadas %d solicitudes aplazadas\n", 
                obtener_timestamp_micros(), hora_i, recuperados);
     }
 
@@ -186,7 +186,7 @@ int main(void) {
    
     sem_wait(&shm->activador_residencial);
     
-    printf("[Residencial] (%06ld) Proceso iniciado (PID: %d)\n", obtener_timestamp_micros(), getpid());
+    printf("[Residencial] (%010ld) Proceso iniciado (PID: %d)\n", obtener_timestamp_micros(), getpid());
     
     inicializar_semaforos();
 
@@ -222,7 +222,7 @@ int main(void) {
             sem_wait(&shm->sem_hora_empezada_residencial);
             
             if (!shm->simulacion_activa || proceso_terminado) break;
-            printf("[Residencial] (%06ld) Día %d, Hora %d: Generando solicitudes...\n", 
+            printf("[Residencial] (%010ld) Día %d, Hora %d: Generando solicitudes...\n", 
             obtener_timestamp_micros(), dia_actual, hora_actual);
 
             // generar hilos
@@ -249,13 +249,13 @@ int main(void) {
             /*int sem_val = 0;
             sem_getvalue(&shm->sem_nodos_libres, &sem_val);
 
-            printf("[Residencial] (%06ld) NODOS LIBRES: %d...\n", obtener_timestamp_micros(), sem_val);
+            printf("[Residencial] (%010ld) NODOS LIBRES: %d...\n", obtener_timestamp_micros(), sem_val);
             */
             // luego espero a que terminen
             for (int h = 0; h < solicitudes[i]; h++) {
-                //printf("[Residencial] (%06ld) ESPERANDO CIERRE %d...\n", obtener_timestamp_micros(), informacion_hilos[dia_actual - 1][i][h].usuario_id);
+                //printf("[Residencial] (%010ld) ESPERANDO CIERRE %d...\n", obtener_timestamp_micros(), informacion_hilos[dia_actual - 1][i][h].usuario_id);
                 //for (int h_sig = h; h_sig < solicitudes[i]; h_sig++) {
-                //    printf("[Residencial] (%06ld) RESTARIAN %d...\n", obtener_timestamp_micros(), informacion_hilos[dia_actual - 1][i][h_sig].usuario_id);
+                //    printf("[Residencial] (%010ld) RESTARIAN %d...\n", obtener_timestamp_micros(), informacion_hilos[dia_actual - 1][i][h_sig].usuario_id);
                 //}
                 pthread_join(hilos[i][h], NULL);
             }
@@ -268,7 +268,7 @@ int main(void) {
 
             sem_getvalue(&shm->sem_nodos_libres, &sem_val);
  */
-            //printf("[Residencial] (%06ld) NODOS LIBRES 2: %d...\n", obtener_timestamp_micros(), sem_val);
+            //printf("[Residencial] (%010ld) NODOS LIBRES 2: %d...\n", obtener_timestamp_micros(), sem_val);
 
             set_ha_terminado_la_hora_actual(false);
             // Avisar al líder que terminamos la hora
@@ -292,7 +292,7 @@ int main(void) {
     
     // Limpieza
     desconectar_shm(shm);
-    printf("[Residencial] (%06ld) Proceso terminado\n", obtener_timestamp_micros());
+    printf("[Residencial] (%010ld) Proceso terminado\n", obtener_timestamp_micros());
     
     return EXIT_SUCCESS;
 }

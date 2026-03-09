@@ -175,7 +175,7 @@ int main(void) {
     }
 
     // Generar reporte final antes de terminar
-    mostrar_contenido(informacion_hilos, numero_solicitudes, "Industrial ");
+    mostrar_contenido(informacion_hilos, numero_solicitudes, "Industrial");
 
     // Limpieza 
     desconectar_shm(shm);
@@ -206,7 +206,7 @@ static void manejador_senal(int sig) {
     proceso_terminado = 1;
 /*     printf("[Industrial ] (%010ld) Señal recibida. Terminando proceso...\n", obtener_timestamp_micros());
 */
-    if (debug) mostrar_contenido(informacion_hilos, numero_solicitudes, "Industrial ");
+    if (debug) mostrar_contenido(informacion_hilos, numero_solicitudes, "Industrial");
     
 }
 
@@ -307,20 +307,20 @@ static void* hilo_solicitud(void *arg) {
             //pthread_testcancel();
             clock_gettime(CLOCK_MONOTONIC, &info->tiempo_espera_inicial);
 
-            esperar_asignacion(info, "Industrial ");
+            esperar_asignacion(info, "Industrial");
         } else if (info->operacion == CONSULTA_PRESION) {
             // en cualquier momento se puede consultar presion
             //usleep(microseconds * h * 0.98);
             //pthread_testcancel();
             clock_gettime(CLOCK_MONOTONIC, &info->tiempo_espera_inicial);
 
-            consultar_presion(info, "Industrial ");
+            consultar_presion(info, "Industrial");
         } else { // en los primeros 45 minutos se cancelan solicitudes
             //usleep(microseconds * h * 0.75);
             //pthread_testcancel();   
             clock_gettime(CLOCK_MONOTONIC, &info->tiempo_espera_inicial);
 
-            cancelar_solicitud(info, "Industrial ");
+            cancelar_solicitud(info, "Industrial");
         }
     }
     else {
@@ -331,7 +331,7 @@ static void* hilo_solicitud(void *arg) {
             //pthread_testcancel();
             clock_gettime(CLOCK_MONOTONIC, &info->tiempo_espera_inicial);
     
-            esperar_asignacion(info, "Industrial ");
+            esperar_asignacion(info, "Industrial");
         } else if (prob < 0.75) {
             // en cualquier momento se puede consultar presion
             
@@ -339,19 +339,19 @@ static void* hilo_solicitud(void *arg) {
         
             usleep(microseconds * h * 0.98);
             clock_gettime(CLOCK_MONOTONIC, &info->tiempo_espera_inicial);
-            consultar_presion(info, "Industrial ");
+            consultar_presion(info, "Industrial");
         } else { // en los primeros 45 minutos se cancelan solicitudes
             usleep(microseconds * h * 0.75);
             //pthread_testcancel();   
             clock_gettime(CLOCK_MONOTONIC, &info->tiempo_espera_inicial);
     
-            cancelar_solicitud(info, "Industrial ");
+            cancelar_solicitud(info, "Industrial");
         }
     }
     
     // Sincronizar salida para evitar mensajes mezclados
     if (debug){
-        mostrar_estado_detalles_hilo(info, "Finalizando", "Industrial ");
+        mostrar_estado_detalles_hilo(info, "Finalizando", "Industrial");
     }
     fflush(stdout);
 

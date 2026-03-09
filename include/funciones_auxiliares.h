@@ -293,7 +293,7 @@ double generar_random_range(double min, double max, unsigned int *seed) {
 }
 
 void mostrar_estado_detalles_hilo(InfoHilo *info, const char *mensaje, const char *proceso) {
-    printf("[%s] (%010ld) %s Hilo %d. Estado: operacion=%s, estado de solicitud=%s\n", 
+    printf("[%-11s] (%010ld) %-25s User: %03d  Op: %s  St: %s\n", 
            proceso, obtener_timestamp_micros(), mensaje, info->usuario_id, nombre_operacion[info->operacion], nombre_estado[info->edo_solicitud]);
 }
 
@@ -330,13 +330,13 @@ void manejador_de_finalizacion_temprana_dia_hora(void *arg) {
 
     if (get_ha_terminado_el_dia_actual()) {
         set_edo_solicitud(datos, CANCELADA);
-        printf("[Nodo de consumo] (%06ld) Solicitud %d CANCELADA por fin de día\n", 
+        printf("[Nodo de consumo] (%010ld) Solicitud %d CANCELADA por fin de día\n", 
                obtener_timestamp_micros(), datos->usuario_id);
         //datos->edo_op_realizada = NINGUNA;
     }
     else {
         set_edo_solicitud(datos, APLAZADA);
-        printf("[Nodo de consumo] (%06ld) Solicitud %d APLAZADA para siguiente hora\n", 
+        printf("[Nodo de consumo] (%010ld) Solicitud %d APLAZADA para siguiente hora\n", 
                obtener_timestamp_micros(), datos->usuario_id);
         //datos->edo_op_realizada = NINGUNA;
         numero_solicitudes_aplazadas++;
@@ -406,7 +406,7 @@ static void consultar_presion(InfoHilo *info, const char *nombre_proceso) {
     set_operacion(info, CONSULTA_PRESION);
     set_edo_solicitud(info, PENDIENTE);
 
-    mostrar_estado_detalles_hilo(info, "Consultando presión", nombre_proceso);   
+    mostrar_estado_detalles_hilo(info, "Consultando presion", nombre_proceso);   
 
     //pthread_rwlock_rdlock(&shm->mutex_nodos);
 
@@ -433,7 +433,7 @@ static void consultar_presion(InfoHilo *info, const char *nombre_proceso) {
 
     manejador_de_finalizacion_exitosa(info);
 
-    mostrar_estado_detalles_hilo(info, "Consulta de presión completada", nombre_proceso);
+    mostrar_estado_detalles_hilo(info, "Consulta de presion", nombre_proceso);
     
 }
 
@@ -444,7 +444,7 @@ static void cancelar_solicitud(InfoHilo *info, const char *nombre_proceso) {
     set_operacion(info, CANCELACION);
     set_edo_solicitud(info, PENDIENTE);
 
-    mostrar_estado_detalles_hilo(info, "Solicitando cancelación", nombre_proceso);
+    mostrar_estado_detalles_hilo(info, "Solicitando cancelacion", nombre_proceso);
 
 
     if (get_ha_terminado_la_hora_actual() || get_ha_terminado_el_dia_actual()) {
@@ -456,18 +456,18 @@ static void cancelar_solicitud(InfoHilo *info, const char *nombre_proceso) {
     
     if (nodo < 0) {
         generar_amonestacion();
-        mostrar_estado_detalles_hilo(info, "Cancelación rechazada - Sin reserva", nombre_proceso);
+        mostrar_estado_detalles_hilo(info, "Cancelacion fallida", nombre_proceso);
     }
     else {
         if (!pagar_tarifa_excedente(info, nodo)) {
             // Error al pagar tarifa excedente
             generar_amonestacion();
-            mostrar_estado_detalles_hilo(info, "Cancelación rechazada - Error al pagar tarifa excedente", nombre_proceso);
+            mostrar_estado_detalles_hilo(info, "Cancelacion fallida", nombre_proceso);
             /* manejador_de_finalizacion_temprana(info);
             return; */
         }
         else {
-            mostrar_estado_detalles_hilo(info, "Cancelación exitosa", nombre_proceso);
+            mostrar_estado_detalles_hilo(info, "Cancelacion exitosa", nombre_proceso);
         }
     }
 
@@ -500,7 +500,7 @@ static void esperar_asignacion(InfoHilo *info, const char *nombre_proceso) {
     set_edo_solicitud(info, PENDIENTE);
 
 
-    mostrar_estado_detalles_hilo(info, "Esperando asignación", nombre_proceso);
+    mostrar_estado_detalles_hilo(info, "Esperando asignacion", nombre_proceso);
     
     sem_wait(&shm->sem_nodos_libres);
 
@@ -577,11 +577,11 @@ static void consumir_agua(InfoHilo *info, const char *nombre_proceso) {
                 shm->nodo_consumo_critico_id = info->id_nodo;
                 pthread_mutex_unlock(&shm->mutex_consumo_critico);
                 
-                mostrar_estado_detalles_hilo(info, "Consumo crítico", nombre_proceso);
+                mostrar_estado_detalles_hilo(info, "Consumo critico", nombre_proceso);
 
                 sem_post(&shm->sem_auditor_listas);
             } else {
-                mostrar_estado_detalles_hilo(info, "Consumo estándar", nombre_proceso);
+                mostrar_estado_detalles_hilo(info, "Consumo estandar", nombre_proceso);
             }
             
             

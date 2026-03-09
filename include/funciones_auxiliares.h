@@ -649,7 +649,7 @@ void mostrar_contenido(InfoHilo info[DIAS_SIMULACION][HORAS_DIA][MAX_SOLICITUDES
     }
 
     fprintf(log, "=== REPORTE DE SIMULACIÓN ===\n\n");
-    fprintf(log, "Formato: [Día Hora] Usuario Hilo  TiempoEspera(s)  m3  Operación  Estado\n\n");
+    fprintf(log, "Formato: [Día Hora Solicitud_i] Usuario Hilo  TiempoEspera(s)  m3  Operación  Estado\n\n");
 
     // Recorrido día por día y hora por hora
     for (int dia = 0; dia < DIAS_SIMULACION; dia++) {
@@ -657,7 +657,7 @@ void mostrar_contenido(InfoHilo info[DIAS_SIMULACION][HORAS_DIA][MAX_SOLICITUDES
             int num_sol = numero_solicitudes[dia][hora];
             if (num_sol == 0) continue;   // Saltar horas sin solicitudes
 
-            fprintf(log, "--- Día %d, Hora %02d ---  (%d solicitudes)\n", dia, hora, num_sol);
+            fprintf(log, "--- Día %d, Hora %02d ---  (%d solicitudes)\n", dia + 1, hora + HORA_INICIO, num_sol);
 
             for (int i = 0; i < num_sol; i++) {
                 InfoHilo *p = &info[dia][hora][i];

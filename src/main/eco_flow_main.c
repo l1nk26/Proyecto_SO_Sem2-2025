@@ -413,19 +413,16 @@ static void destruir_memoria_compartida(MemoriaCompartida *shm, int shm_fd) {
 
 static pid_t lanzar_proceso(const char *ejecutable) {
     // Check if process is already running by looking for it in /proc
-    /*
+    
     char cmd[256];
-    snprintf(cmd, sizeof(cmd), "pgrep -f %s", ejecutable);
-    printf("%s\n", cmd);
+    snprintf(cmd, sizeof(cmd), "pgrep -x %s", ejecutable);
     FILE *fp = popen(cmd, "r");
     if (fp != NULL) {
         char pid_str[32];
         if (fgets(pid_str, sizeof(pid_str), fp) != NULL) {
-            printf("Process already running: %s", pid_str);
             // Process is already running
             pid_t existing_pid = atoi(pid_str);
             pclose(fp);
-            printf("%d\n", existing_pid);
             
             printf("[Orquestador] Proceso %s ya está ejecutándose (PID: %d)\n", ejecutable, existing_pid);
             return existing_pid;
@@ -433,7 +430,7 @@ static pid_t lanzar_proceso(const char *ejecutable) {
         } else {
             pclose(fp);
         }
-    }*/
+    }
     
     // Process not running, launch it
     pid_t pid = fork();

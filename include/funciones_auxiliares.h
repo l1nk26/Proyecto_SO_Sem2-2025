@@ -330,10 +330,14 @@ void manejador_de_finalizacion_temprana_dia_hora(void *arg) {
 
     if (get_ha_terminado_el_dia_actual()) {
         set_edo_solicitud(datos, CANCELADA);
+        printf("[Nodo de consumo] (%06ld) Solicitud %d CANCELADA por fin de día\n", 
+               obtener_timestamp_micros(), datos->usuario_id);
         //datos->edo_op_realizada = NINGUNA;
     }
     else {
         set_edo_solicitud(datos, APLAZADA);
+        printf("[Nodo de consumo] (%06ld) Solicitud %d APLAZADA para siguiente hora\n", 
+               obtener_timestamp_micros(), datos->usuario_id);
         //datos->edo_op_realizada = NINGUNA;
         numero_solicitudes_aplazadas++;
     }

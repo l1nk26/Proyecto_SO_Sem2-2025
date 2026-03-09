@@ -167,7 +167,7 @@ void imprimir_semaforo_y_estadisticas() {
     printf("║" WHITE " %-75s " BLUE " ║\n", "ESTADÍSTICAS GLOBALES");
     printf("╠═════════════════════════════════════════════════════════════════════════════╣\n");
 //    printf("║" WHITE " Total m³:   " BOLD GREEN "%-10.2f" RESET WHITE " %-51s " BLUE " ║\n", shm->total_metros_cubicos, "");
-    printf("║" WHITE " Tiempo esp: " BOLD YELLOW "h:m:s  %2d:%2d:%2d" RESET WHITE " %-46s " BLUE " ║\n", tiempo_espera_promedio.horas, tiempo_espera_promedio.minutos, tiempo_espera_promedio.segundos, "");
+    printf("║" WHITE " Tiempo espera promedio: " BOLD YELLOW "h:m:s  %2d:%2d:%2d" RESET WHITE " %-34s " BLUE " ║\n", tiempo_espera_promedio.horas, tiempo_espera_promedio.minutos, tiempo_espera_promedio.segundos, "");
     printf("╚═════════════════════════════════════════════════════════════════════════════╝\n" RESET);
     fflush(stdout);
 }
@@ -176,7 +176,7 @@ void imprimir_info_sistema() {
     printf(BOLD MAGENTA "╔═════════════════════════════════════════════════════════════════════════════╗\n");
     printf("║" WHITE " %-75s " MAGENTA " ║\n", "INFORMACIÓN DEL SISTEMA");
     printf("╠═════════════════════════════════════════════════════════════════════════════╣\n");
-    printf("║" WHITE " Hora Actual:              " BOLD "%02d:00" RESET WHITE " %-41s " MAGENTA "  ║\n", shm->hora_actual, "");
+    printf("║" WHITE " Hora Actual:              " BOLD "%02d:%02d" RESET WHITE " %-41s " MAGENTA "  ║\n", shm->hora_actual, shm->minuto_actual, "");
     printf("║" WHITE " Día Actual:               " BOLD "%-2d" RESET WHITE "    %-41s " MAGENTA "  ║\n", shm->dia_actual, "");
     printf("║" WHITE " Total Metros Cúbicos:    " BOLD GREEN "%-10.2f" RESET WHITE " %-38s " MAGENTA " ║\n", shm->total_metros_cubicos, "");
     printf("║" WHITE " Amonestaciones Digitales: " BOLD RED "%-10d" RESET WHITE " %-38s " MAGENTA "║\n", shm->amonestaciones_digitales, "");

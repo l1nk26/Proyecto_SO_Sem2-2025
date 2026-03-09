@@ -457,10 +457,14 @@ static void cancelar_solicitud(InfoHilo *info, const char *nombre_proceso) {
     else {
         if (!pagar_tarifa_excedente(info, nodo)) {
             // Error al pagar tarifa excedente
-            manejador_de_finalizacion_temprana(info);
-            return;
+            generar_amonestacion();
+            mostrar_estado_detalles_hilo(info, "Cancelación rechazada - Error al pagar tarifa excedente", nombre_proceso);
+            /* manejador_de_finalizacion_temprana(info);
+            return; */
         }
-        mostrar_estado_detalles_hilo(info, "Cancelación exitosa", nombre_proceso);
+        else {
+            mostrar_estado_detalles_hilo(info, "Cancelación exitosa", nombre_proceso);
+        }
     }
 
     manejador_de_finalizacion_exitosa(info);
@@ -522,7 +526,6 @@ static void esperar_asignacion(InfoHilo *info, const char *nombre_proceso) {
 
         return;
     }
-    pthread_rwlock_unlock(&shm->mutex_nodos);
     
     
     pthread_rwlock_wrlock(&shm->valvulas[nodo].rwlock_nodo);
@@ -531,6 +534,7 @@ static void esperar_asignacion(InfoHilo *info, const char *nombre_proceso) {
         if (!(shm == NULL || nodo < 0 || nodo >= NUM_NODOS)) {
             set_edo_solicitud(info, DUPLICADA2);
         }
+        pthread_rwlock_unlock(&shm->mutex_nodos);
         pthread_rwlock_unlock(&shm->valvulas[nodo].rwlock_nodo);
         manejador_de_finalizacion_temprana(info);
         return;
@@ -539,6 +543,7 @@ static void esperar_asignacion(InfoHilo *info, const char *nombre_proceso) {
     
     info->id_nodo = nodo;  // Asignar el ID del nodo reservado
     consumir_agua(info, nombre_proceso);
+    pthread_rwlock_unlock(&shm->mutex_nodos);
     pthread_rwlock_unlock(&shm->valvulas[nodo].rwlock_nodo);
 
 
@@ -690,17 +695,17 @@ void mostrar_contenido(InfoHilo info[DIAS_SIMULACION][HORAS_DIA][MAX_SOLICITUDES
     fprintf(log, "\n=== ESTADÍSTICAS GLOBALES ===\n");
     fprintf(log, "Total de solicitudes: %lld\n", total_solicitudes);
 
-    DT dt_promedio = micros_to_DT(suma_tiempo_espera / total_solicitudes, shm->microseconds);
+    DT dt_promedio = micros_to_DT(suma_tiempo_espera, shm->microseconds);
 
     if (total_solicitudes > 0) {
 /*         fprintf(log, "Tiempo de espera total: D/H/M/S %2d:%2d:%2d:%2d\n",
-                dt_total.dias, dt_total.horas, dt_total.minutos, dt_total.segundos);
+                dt_total.dias, dt_total.horas, dt_total.minutos, dt_total.segundos);*/
         fprintf(log, "Tiempo de espera total (microsegundos): %.6f \n",
-                    (double)(suma_tiempo_espera)); */
-        fprintf(log, "Tiempo de espera promedio: D/H/M/S %2d:%2d:%2d:%2d\n",
+                    (double)(suma_tiempo_espera)); 
+        fprintf(log, "Tiempo de espera: D/H/M/S %2d:%2d:%2d:%2d\n",
                 dt_promedio.dias, dt_promedio.horas, dt_promedio.minutos, dt_promedio.segundos);
         fprintf(log, "Metros cúbicos promedio: %.6f\n",
-                (double)(suma_m3 / total_solicitudes));
+                (double)(suma_m3));
     } else {
         fprintf(log, "No hay solicitudes registradas.\n");
     }
@@ -764,6 +769,8 @@ void mostrar_contenido(InfoHilo info[DIAS_SIMULACION][HORAS_DIA][MAX_SOLICITUDES
             fprintf(log, "  Tiempo promedio: D/H/M/S %2d:%2d:%2d:%2d\n",
                     dt_promedio_op.dias, dt_promedio_op.horas, 
                     dt_promedio_op.minutos, dt_promedio_op.segundos);
+            fprintf(log, "Tiempo total (microsegundos): %.6f \n",
+                    (double)(suma_tiempo_por_op[i])); 
             fprintf(log, "  Tiempo promedio (micros): %.6f\n", 
                     suma_tiempo_por_op[i] / conteo_por_op[i]);
             fprintf(log, "  m³ promedio: %.6f\n", m3_promedio_op);

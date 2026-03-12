@@ -11,6 +11,7 @@
 #include "ipc_utils.h"
 
 int hilo_id = 1000;
+static unsigned int random_seed; // Semilla para rand_r en el proceso
 
 static int max_solicitudes; // Maximas solicitudes que pueden haber en un dia
 static int solicitudes[HORAS_DIA]; // Cada entrada indica el nro de solicitudes en esa hora
@@ -47,13 +48,19 @@ void intercambiar_estados(InfoHilo *a, InfoHilo *b) {
 
 void recuperar_solicitudes_aplazadas(int *recuperados, int dia_i, int hora_i) {
     *recuperados = 0;
+    
+    __atomic_store_n(&numero_solicitudes_aplazadas, 0, __ATOMIC_SEQ_CST);
+    if (hora_i < 0) {
+        return;
+    }
+    
+
     for (int i = 0; i < numero_solicitudes[dia_i][hora_i]; i++) {
         if (informacion_hilos[dia_i][hora_i][i].edo_solicitud == APLAZADA) {
             intercambiar_estados(&informacion_hilos[dia_i][hora_i][i], &informacion_hilos[dia_i][hora_i + 1][*recuperados]);
             (*recuperados)++;
         }
     }
-    numero_solicitudes_aplazadas = 0;
 }
 
 static void crear_solicitudes() {
@@ -61,11 +68,44 @@ static void crear_solicitudes() {
     if (shm->usar_solicitudes_forzadas) {
         max_solicitudes = shm->solicitudes_forzadas_industrial * HORAS_DIA;
     } else {
-        max_solicitudes = 250 - shm->max_solicitudes_residencial;
+        max_solicitudes = generar_random_range_int(MIN_SOLICITUDES_R, 250 - shm->max_solicitudes_residencial, &random_seed);
     }
     
     // Generar numero de solicitudes para el dia
     generar_solicitudes();
+}
+
+// [MIN_SOLICITUDES to MAX_SOLICITUDES] dependiendo de max_solicitudes
+static void generar_solicitudes(void) {
+
+    if (shm->usar_solicitudes_forzadas) {
+        // Usar valores exactos desde memoria compartida
+        int solicitudes_por_hora = shm->solicitudes_forzadas_industrial;
+        for (int i = 0; i < HORAS_DIA; i++) {
+            solicitudes[i] = solicitudes_por_hora;
+        }
+        return;
+    }
+
+    // Lógica actual con Poisson cuando no se usa forzado
+    int total_solicitudes = 0;
+    
+    for (int i = 0; i < HORAS_DIA; i++) {
+        solicitudes[i] = poisson_ppf(max_solicitudes / (double)HORAS_DIA, generar_random_range(0, 1, &random_seed)); // solicitudes por hora
+        if (total_solicitudes >= max_solicitudes) {
+            solicitudes[i] = 0;
+            continue;
+        }
+        else {
+            if (total_solicitudes + solicitudes[i] <= max_solicitudes) {
+                total_solicitudes += solicitudes[i];
+            }
+            else{
+                solicitudes[i] = max_solicitudes - total_solicitudes;
+                total_solicitudes += solicitudes[i];
+            }
+        }
+    }
 }
 
 int main(void) {
@@ -194,8 +234,9 @@ static void inicializar_y_configurar(void) {
     sigaction(SIGTERM, &sa, NULL);
     sigaction(SIGINT, &sa, NULL);
     
-    // Inicializar semilla aleatoria
-    srand(SEED_INDUSTRIAL);
+    // Inicializar semilla aleatoria - rand() se mantiene por compatibilidad, pero usamos rand_r en el proceso
+    srand(time(NULL));
+    random_seed = (unsigned int)time(NULL) ^ (unsigned int)getpid();
 
 
 }   
@@ -208,45 +249,6 @@ static void manejador_senal(int sig) {
 */
     if (debug) mostrar_contenido(informacion_hilos, numero_solicitudes, "Industrial");
     
-}
-
-// [MIN_SOLICITUDES to MAX_SOLICITUDES] dependiendo de max_solicitudes
-static void generar_solicitudes(void) {
-
-    if (shm->usar_solicitudes_forzadas) {
-        // Usar valores exactos desde memoria compartida
-        int solicitudes_por_hora = shm->solicitudes_forzadas_industrial;
-        for (int i = 0; i < HORAS_DIA; i++) {
-            solicitudes[i] = solicitudes_por_hora;
-        }
-        return;
-    }
-
-    // Lógica actual con Poisson cuando no se usa forzado
-    int total_solicitudes = 0;
-    
-    for (int i = 0; i < HORAS_DIA; i++) {
-        solicitudes[i] = poisson_ppf(max_solicitudes / (double)HORAS_DIA, (double)rand() / RAND_MAX); // solicitudes por hora
-        if (total_solicitudes >= max_solicitudes) {
-            solicitudes[i] = 0;
-            continue;
-        }
-        else {
-            if (total_solicitudes + solicitudes[i] <= max_solicitudes) {
-                total_solicitudes += solicitudes[i];
-            }
-            else{
-                solicitudes[i] = max_solicitudes - total_solicitudes;
-                total_solicitudes += solicitudes[i];
-            }
-        }
-    }
-    // Debug: imprimir solicitudes generadas
-    /* printf("[Industrial ] (%010ld) Solicitudes generadas: ", obtener_timestamp_micros());
-    for (int i = 0; i < HORAS_DIA; i++) {
-        printf("%d ", solicitudes[i]);
-    } */
-    //printf("maximo: %d total: %d\n", max_solicitudes, total_solicitudes);
 }
 
 // dia_i y hora_i van 0-X
@@ -269,12 +271,15 @@ static void lanzar_hilos_solicitud(int dia_i, int hora_i) {
         pthread_create(&hilos[hora_i][i], NULL, hilo_solicitud, &informacion_hilos[dia_i][hora_i][i]);
     }
     solicitudes[hora_i] += recuperados;
+    numero_solicitudes[dia_i][hora_i] = solicitudes[hora_i];
+
 
     for (int i = recuperados; i < solicitudes[hora_i]; i++) {
         
         // Inicializamos su espacio
         InfoHilo *info = &informacion_hilos[dia_i][hora_i][i];
-        info->usuario_id = rand() % MAX_USERS_I + USER_INDEX_I;
+        unsigned int seed = (unsigned int)time(NULL) ^ (unsigned int)((uintptr_t)pthread_self()) ^ (unsigned int)hilo_id;
+        info->usuario_id = generar_random_range_int(USER_INDEX_I, USER_INDEX_I + MAX_USERS_I - 1, &seed);
         info->hilo_id = hilo_id++;
         info->id_nodo = -1;  // No asignado aún
         // info->tiempo_espera = 0; // tiempo de espera en ms - no existe en la estructura
@@ -291,9 +296,9 @@ static void lanzar_hilos_solicitud(int dia_i, int hora_i) {
 // Función que ejecutarán los hilos
 static void* hilo_solicitud(void *arg) {
     InfoHilo *info = (InfoHilo *)arg;
-    //unsigned int seed = (unsigned int)pthread_self() ^ (unsigned int)time(NULL); 
-    //pthread_cleanup_push(cleanup_handler, info);
-    unsigned int seed = (unsigned int)(info->hilo_id + 1) * (unsigned int)info->usuario_id;
+    // Semilla aleatoria por hilo: mezcla tiempo, ID de hilo, usuario y contador de hilos
+    unsigned int seed = (unsigned int)time(NULL) ^ (unsigned int)((uintptr_t)pthread_self()) ^
+                        (unsigned int)info->hilo_id ^ (unsigned int)info->usuario_id;
 
     // Generar número aleatorio para determinar la acción
     double prob = (double)generar_random_range(0,1, &seed);
@@ -353,17 +358,21 @@ static void* hilo_solicitud(void *arg) {
     if (debug){
         mostrar_estado_detalles_hilo(info, "Finalizando", "Industrial");
     }
-    fflush(stdout);
+
 
     //pthread_cleanup_pop(1);
 
     if (get_edo_solicitud(info) != PROCESADA) {
         return NULL;
     }
+    
+    
     // aumentar el numero de consultas
     lock_metricas(shm);
     shm->total_consultas_realizadas++;
     unlock_metricas(shm);
+
+    fflush(stdout);
     
     return NULL;
 }

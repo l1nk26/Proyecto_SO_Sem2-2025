@@ -41,7 +41,7 @@ void realizar_lectura_presion(MemoriaCompartida *shm) {
 
     // Actualización segura de métricas con Mutex Global
     pthread_mutex_lock(&shm->mutex_metricas);
-    shm->total_consultas_realizadas++;
+    //shm->total_consultas_realizadas++;
     shm->total_nodos_encontrados_ocupados += nodos_ocupados;
     pthread_mutex_unlock(&shm->mutex_metricas);
 

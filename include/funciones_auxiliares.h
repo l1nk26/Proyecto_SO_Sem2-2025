@@ -282,14 +282,26 @@ int64_t calcular_tiempo_transcurrido_micros_int(const struct timespec *inicio, c
 
 // Genera un número aleatorio en el rango [min, max]
 int generar_random_range_int(int min, int max, unsigned int *seed) {
-    *seed = (*seed * 1103515245 + 12345) & 0x7fffffff;
-    return min + (*seed / 0x7fffffff) * (max - min);    
+    if (min > max) {
+        int tmp = min;
+        min = max;
+        max = tmp;
+    }
+    unsigned int raw = (unsigned int)rand_r(seed);
+    double fr = (double)raw / (double)RAND_MAX;
+    return min + (int)(fr * (max - min + 1));
 }
 
 // Genera un número aleatorio en el rango [min, max]
 double generar_random_range(double min, double max, unsigned int *seed) {
-    *seed = (*seed * 1103515245 + 12345) & 0x7fffffff;
-    return min + (*seed / (double)0x7fffffff) * (max - min);
+    if (min > max) {
+        double tmp = min;
+        min = max;
+        max = tmp;
+    }
+    unsigned int raw = (unsigned int)rand_r(seed);
+    double fr = (double)raw / (double)RAND_MAX;
+    return min + fr * (max - min);
 }
 
 void mostrar_estado_detalles_hilo(InfoHilo *info, const char *mensaje, const char *proceso) {
@@ -324,9 +336,9 @@ void manejador_de_finalizacion_temprana_dia_hora(void *arg) {
     clock_gettime(CLOCK_MONOTONIC, &(datos->tiempo_espera_final));
     int64_t tiempo_espera = calcular_tiempo_transcurrido_micros_int(&(datos->tiempo_espera_inicial), &(datos->tiempo_espera_final));
     
-    lock_metricas(shm);
+/*     lock_metricas(shm);
     shm->tiempo_espera_total_micros += tiempo_espera;
-    unlock_metricas(shm);
+    unlock_metricas(shm); */
 
     if (get_ha_terminado_el_dia_actual()) {
         set_edo_solicitud(datos, CANCELADA);
@@ -339,7 +351,7 @@ void manejador_de_finalizacion_temprana_dia_hora(void *arg) {
         printf("[Nodo de consumo] (%010ld) Solicitud %d APLAZADA para siguiente hora\n", 
                obtener_timestamp_micros(), datos->usuario_id);
         //datos->edo_op_realizada = NINGUNA;
-        numero_solicitudes_aplazadas++;
+        __atomic_add_fetch(&numero_solicitudes_aplazadas, 1, __ATOMIC_SEQ_CST);
     }
 
 }
@@ -351,9 +363,9 @@ void manejador_de_finalizacion_temprana(void *arg) {
     clock_gettime(CLOCK_MONOTONIC, &(datos->tiempo_espera_final));
     int64_t tiempo_espera = calcular_tiempo_transcurrido_micros_int(&(datos->tiempo_espera_inicial), &(datos->tiempo_espera_final));
     
-    lock_metricas(shm);
+/*     lock_metricas(shm);
     shm->tiempo_espera_total_micros += tiempo_espera;
-    unlock_metricas(shm);
+    unlock_metricas(shm); */
 
     if (get_edo_solicitud(datos) == DUPLICADA1 ||
         get_edo_solicitud(datos) == DUPLICADA2) {
@@ -457,6 +469,7 @@ static void cancelar_solicitud(InfoHilo *info, const char *nombre_proceso) {
     if (nodo < 0) {
         generar_amonestacion();
         mostrar_estado_detalles_hilo(info, "Cancelacion fallida", nombre_proceso);
+        
     }
     else {
         if (!pagar_tarifa_excedente(info, nodo)) {
@@ -635,7 +648,9 @@ void mostrar_contenido(InfoHilo info[DIAS_SIMULACION][HORAS_DIA][MAX_SOLICITUDES
 
     // Variables para estadísticas globales
     long long total_solicitudes = 0;
+    long long total_sol_procesadas = 0;
     int64_t suma_tiempo_espera = 0;
+    int64_t suma_tiempo_espera_procesadas = 0;
     double suma_m3 = 0.0;
     int conteo_operacion[nombre_operacion_count];
     int conteo_estado[nombre_estado_count];
@@ -664,7 +679,10 @@ void mostrar_contenido(InfoHilo info[DIAS_SIMULACION][HORAS_DIA][MAX_SOLICITUDES
 
                 // Calcular tiempo de espera
                 double espera = calcular_tiempo_transcurrido_micros_int(&p->tiempo_espera_inicial, &p->tiempo_espera_final);
-
+                if (p->edo_solicitud == PROCESADA) {
+                    total_sol_procesadas++;
+                    suma_tiempo_espera_procesadas += espera;
+                }
                 // Acumular estadísticas
                 total_solicitudes++;
                 suma_tiempo_espera += espera;
@@ -698,8 +716,10 @@ void mostrar_contenido(InfoHilo info[DIAS_SIMULACION][HORAS_DIA][MAX_SOLICITUDES
     // Imprimir estadísticas generales
     fprintf(log, "\n=== ESTADÍSTICAS GLOBALES ===\n");
     fprintf(log, "Total de solicitudes: %lld\n", total_solicitudes);
+    fprintf(log, "Total de solicitudes procesadas: %lld\n", total_sol_procesadas);
 
     DT dt_promedio = micros_to_DT(suma_tiempo_espera, shm->microseconds);
+    DT dt_promedio_procesadas = micros_to_DT(suma_tiempo_espera_procesadas, shm->microseconds);
 
     if (total_solicitudes > 0) {
 /*         fprintf(log, "Tiempo de espera total: D/H/M/S %2d:%2d:%2d:%2d\n",
@@ -708,6 +728,8 @@ void mostrar_contenido(InfoHilo info[DIAS_SIMULACION][HORAS_DIA][MAX_SOLICITUDES
                     (double)(suma_tiempo_espera)); 
         fprintf(log, "Tiempo de espera: D/H/M/S %2d:%2d:%2d:%2d\n",
                 dt_promedio.dias, dt_promedio.horas, dt_promedio.minutos, dt_promedio.segundos);
+        fprintf(log, "Tiempo de espera (solo procesadas): D/H/M/S %2d:%2d:%2d:%2d\n",
+                dt_promedio_procesadas.dias, dt_promedio_procesadas.horas, dt_promedio_procesadas.minutos, dt_promedio_procesadas.segundos);
         fprintf(log, "Metros cúbicos promedio: %.6f\n",
                 (double)(suma_m3));
     } else {
@@ -753,7 +775,7 @@ void mostrar_contenido(InfoHilo info[DIAS_SIMULACION][HORAS_DIA][MAX_SOLICITUDES
                 double espera = calcular_tiempo_transcurrido_micros_int(&p->tiempo_espera_inicial, &p->tiempo_espera_final);
                 unsigned int op = p->operacion;
                     
-                if (op < nombre_operacion_count) {
+                if (op < nombre_operacion_count && p->edo_solicitud == PROCESADA) {
                     conteo_por_op[op]++;
                     suma_tiempo_por_op[op] += espera;
                     suma_m3_por_op[op] += p->m3_consumidos;
@@ -769,16 +791,16 @@ void mostrar_contenido(InfoHilo info[DIAS_SIMULACION][HORAS_DIA][MAX_SOLICITUDES
             double m3_promedio_op = suma_m3_por_op[i] / conteo_por_op[i];
                 
             fprintf(log, "\n--- %s ---\n", nombre_operacion[i]);
-            fprintf(log, "  Total solicitudes: %lld\n", conteo_por_op[i]);
-            fprintf(log, "  Tiempo promedio: D/H/M/S %2d:%2d:%2d:%2d\n",
+            fprintf(log, "  Total solicitudes (procesadas): %lld\n", conteo_por_op[i]);
+            fprintf(log, "  Tiempo promedio (procesadas): D/H/M/S %2d:%2d:%2d:%2d\n",
                     dt_promedio_op.dias, dt_promedio_op.horas, 
                     dt_promedio_op.minutos, dt_promedio_op.segundos);
-            fprintf(log, "Tiempo total (microsegundos): %.6f \n",
+            fprintf(log, "Tiempo total (microsegundos) (procesadas): %.6f \n",
                     (double)(suma_tiempo_por_op[i])); 
-            fprintf(log, "  Tiempo promedio (micros): %.6f\n", 
+            fprintf(log, "  Tiempo promedio (micros) (procesadas): %.6f\n", 
                     suma_tiempo_por_op[i] / conteo_por_op[i]);
-            fprintf(log, "  m³ promedio: %.6f\n", m3_promedio_op);
-            fprintf(log, "  m³ total: %.6f\n", suma_m3_por_op[i]);
+            fprintf(log, "  m³ promedio (procesadas): %.6f\n", m3_promedio_op);
+            fprintf(log, "  m³ total (procesadas): %.6f\n", suma_m3_por_op[i]);
         }
     }
 

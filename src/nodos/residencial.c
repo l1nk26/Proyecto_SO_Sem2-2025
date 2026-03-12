@@ -11,6 +11,7 @@
 #include "ipc_utils.h"
 
 int hilo_id = 2000;
+static unsigned int random_seed; // Semilla para rand_r en el proceso
 
 static int max_solicitudes; // Maximas solicitudes que pueden haber en un dia
 static int solicitudes[HORAS_DIA]; // Cada entrada indica el nro de solicitudes en esa hora
@@ -51,6 +52,12 @@ void intercambiar_estados(InfoHilo *a, InfoHilo *b) {
 
 void recuperar_solicitudes_aplazadas(int *recuperados, int dia_i, int hora_i) {
     *recuperados = 0;
+    
+    if (hora_i < 0) {
+        __atomic_store_n(&numero_solicitudes_aplazadas, 0, __ATOMIC_SEQ_CST);
+        return;
+    }
+
     for (int i = 0; i < numero_solicitudes[dia_i][hora_i]; i++) {
         if (informacion_hilos[dia_i][hora_i][i].edo_solicitud == APLAZADA) {
             intercambiar_estados(&informacion_hilos[dia_i][hora_i][i], &informacion_hilos[dia_i][hora_i + 1][*recuperados]);
@@ -75,7 +82,8 @@ static void generar_solicitudes(void) {
     int total_solicitudes = 0;
     
     for (int i = 0; i < HORAS_DIA; i++) {
-        solicitudes[i] = poisson_ppf(max_solicitudes / (double)HORAS_DIA, (double)rand() / RAND_MAX); // solicitudes por hora
+        double p = generar_random_range(0, 1, &random_seed);
+        solicitudes[i] = poisson_ppf(max_solicitudes / (double)HORAS_DIA, p); // solicitudes por hora
         if (total_solicitudes >= max_solicitudes) {
             solicitudes[i] = 0;
             continue;
@@ -98,7 +106,7 @@ static void crear_solicitudes() {
     if (shm->usar_solicitudes_forzadas) {
         max_solicitudes = shm->solicitudes_forzadas_residencial * HORAS_DIA;
     } else {
-        max_solicitudes = rand() % (MAX_SOLICITUDES_R - MIN_SOLICITUDES_R + 1) + MIN_SOLICITUDES_R;
+        max_solicitudes = generar_random_range_int(MIN_SOLICITUDES_R, MAX_SOLICITUDES_R, &random_seed);
     }
     set_max_solicitudes_residencial(shm, max_solicitudes);
     
@@ -127,8 +135,9 @@ static void inicializar_y_configurar(void) {
     sigaction(SIGTERM, &sa, NULL);
     sigaction(SIGINT, &sa, NULL);
     
-    // Inicializar semilla aleatoria
-    srand(SEED_RESIDENCIAL);
+    // Inicializar semilla aleatoria - rand() se mantiene por compatibilidad, pero usamos rand_r en el proceso
+    srand(time(NULL));
+    random_seed = (unsigned int)time(NULL) ^ (unsigned int)getpid();
 
 
 }   
@@ -153,12 +162,14 @@ static void lanzar_hilos_solicitud(int dia_i, int hora_i) {
         pthread_create(&hilos[hora_i][i], NULL, hilo_solicitud, &informacion_hilos[dia_i][hora_i][i]);
     }
     solicitudes[hora_i] += recuperados;
+    numero_solicitudes[dia_i][hora_i] = solicitudes[hora_i];
 
     for (int i = recuperados; i < solicitudes[hora_i]; i++) {
         
         // Inicializamos su espacio
         InfoHilo *info = &informacion_hilos[dia_i][hora_i][i];
-        info->usuario_id = rand() % MAX_USERS_R + USER_INDEX_R;
+        unsigned int seed = (unsigned int)time(NULL) ^ (unsigned int)((uintptr_t)pthread_self()) ^ (unsigned int)hilo_id;
+        info->usuario_id = generar_random_range_int(USER_INDEX_R, USER_INDEX_R + MAX_USERS_R - 1, &seed);
         info->hilo_id = hilo_id++;
         info->id_nodo = -1;  // No asignado aún
         info->m3_consumidos = 0;
@@ -300,10 +311,10 @@ int main(void) {
 // Función que ejecutarán los hilos
 static void* hilo_solicitud(void *arg) {
     InfoHilo *info = (InfoHilo *)arg;
-    //unsigned int seed = (unsigned int)pthread_self() ^ (unsigned int)time(NULL); 
 
-    //pthread_cleanup_push(manejador_de_finalizacion_temprana_dia_hora, info);
-    unsigned int seed = (unsigned int)(info->hilo_id + 1) * (unsigned int)info->usuario_id;
+    // Semilla aleatoria por hilo: mezcla tiempo, ID de hilo, usuario y de hilos
+    unsigned int seed = (unsigned int)time(NULL) ^ (unsigned int)((uintptr_t)pthread_self()) ^
+                        (unsigned int)info->hilo_id ^ (unsigned int)info->usuario_id;
 
     // Generar número aleatorio para determinar la acción
     double prob = (double)generar_random_range(0,1, &seed);
@@ -362,18 +373,21 @@ static void* hilo_solicitud(void *arg) {
     if (debug){
         mostrar_estado_detalles_hilo(info, "Finalizando", "Residencial");
     }
-    fflush(stdout);
+
 
     //pthread_cleanup_pop(1);
 
     if (get_edo_solicitud(info) != PROCESADA) {
         return NULL;
     }
-
+    
+    
     // aumentar el numero de consultas
     lock_metricas(shm);
     shm->total_consultas_realizadas++;
     unlock_metricas(shm);
+
+    fflush(stdout);
     
     return NULL;
 }

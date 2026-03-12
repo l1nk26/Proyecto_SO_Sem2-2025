@@ -166,7 +166,6 @@ int main(int argc, char** argv) {
                 }
             }
 
-            // no se si estan haciendo algo pero los dejo ahi por si acaso
             sem_post(&shm->sem_nodo_residencial);
             sem_post(&shm->sem_nodo_industrial);
             
